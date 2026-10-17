@@ -2330,7 +2330,7 @@ function pushHist(before) {
 // chain that places the last star solves the puzzle. Dots decide everything: only empty cells
 // count as open. Never in Ink mode, never onto a cell that would clash with a star, never after
 // an erase (or a cleared star would come straight back), and any move by the player stops it.
-var FILL_LOOK = 450, FILL_RING = 350, FILL_GAP = 450;          // ms: show the unit, show the cell, pause between stars
+var FILL_START = 640, FILL_LOOK = 900, FILL_RING = 700, FILL_GAP = 900;   // ms: after your move, show the unit, show the cell, pause between stars
 var fill = null;
 function inUnit(i, u) { return u < N ? ((i / N) | 0) === u : u < 2 * N ? i % N === u - N : regOf(i) === u - 2 * N; }
 function unitList(u) { var a = []; for (var i = 0; i < NN; i++) if (inUnit(i, u)) a.push(i); return a; }
@@ -2388,7 +2388,7 @@ function afterChange(fx) {
     else { (game.ink ? sfx.ink : sfx.star)(); }
   }
   checkWin();
-  if (!fx.noFill) runFill(fx.fromFill ? FILL_GAP : 320);        // after your move settles, or the next star in a chain
+  if (!fx.noFill) runFill(fx.fromFill ? FILL_GAP : FILL_START);  // after your move settles, or the next star in a chain
 }
 function tapCell(i) {
   var before = snapshot(), m = marks[i], fx = {};

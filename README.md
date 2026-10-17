@@ -12,7 +12,7 @@ To install on a phone: Safari › Share › Add to Home Screen, or Chrome › me
 
 - Easy, Medium, Hard and Expert
 - Daily puzzle, the same for everyone each day
-- Ink mode: stars are permanent and one incorrect star ends the puzzle; dots can still be undone
+- Ink mode: stars and dots are both permanent, and one incorrect mark ends the puzzle
 
 ## Controls
 

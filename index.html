@@ -1454,7 +1454,7 @@ var K = {
 var DEFAULTS = {
   palette: 'meadow', piece: 'star', mark: 'dot', theme: 'system',
   autoDots: true, autoLines: false, autoCheck: true, showTimer: true,
-  patterns: false, sound: false, haptics: true, ink: false
+  sound: false, haptics: true, ink: false
 };
 var PIECES = ['star', 'spark', 'moon', 'sun'];
 var PIECE_NAMES = { star: 'Star', spark: 'Spark', moon: 'Moon', sun: 'Sun' };
@@ -1463,6 +1463,7 @@ var S = (function () {
   if (PIECES.indexOf(s.piece) < 0) s.piece = 'star';          // retired pieces fall back to the star
   if (s.classic) { s.palette = 'paper'; }
   delete s.classic;
+  delete s.patterns;                                            // colour-blind patterns were retired
   return s;
 })();
 function saveSettings() { store.set(K.settings, S); }
@@ -1552,8 +1553,10 @@ function hashStr(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h
 
 /* ===== 10-theme.js ===== */
 /* ---------------------------------------------------------------- palettes
-   Ten colours each (one per region). Hues are spread evenly round the wheel at
-   matched lightness, then warmed with a touch of cream so they sit softly on parchment. */
+   Ten colours each (one per region), and each palette has its own character:
+   Meadow is a light pastel rainbow, Ember keeps to deep warm tones, Tide keeps to
+   cool sea colours, and Paper is plain ink lines. Ember and Tide mix light and dark
+   shades so neighbouring regions still read apart without the full rainbow. */
 var PALETTES = {
   meadow: {
     name: 'Meadow', note: 'Soft pastels',
@@ -1562,13 +1565,13 @@ var PALETTES = {
   },
   ember: {
     name: 'Ember', note: 'Warm and deep',
-    colors: ['#F4A297', '#F5B483', '#E9CA80', '#B3C87F', '#7FCFA4', '#61CED4', '#7CBBF0', '#ADA3E9', '#DFA3D9', '#D48492'],
-    names: ['coral', 'apricot', 'honey', 'olive', 'sage', 'teal', 'sky', 'plum', 'orchid', 'berry']
+    colors: ['#C8414F', '#8C2C47', '#F08A72', '#B4532E', '#7A4A35', '#DCA184', '#D8789A', '#7D3F70', '#B88BB0', '#8A8743'],
+    names: ['crimson', 'wine', 'coral', 'rust', 'cocoa', 'clay', 'rose', 'plum', 'mauve', 'olive']
   },
   tide: {
-    name: 'Tide', note: 'Sea glass',
-    colors: ['#F7C3B6', '#F4DAB0', '#DAE4B6', '#B8E0BF', '#9AD3C6', '#A6E2E9', '#A2D2EC', '#A2BCE3', '#CEC7F4', '#E3BDDE'],
-    names: ['shell', 'sand', 'lime', 'seafoam', 'mint', 'aqua', 'sky', 'ocean', 'lavender', 'orchid']
+    name: 'Tide', note: 'Cool sea glass',
+    colors: ['#34507F', '#3B7CBF', '#8EC3EA', '#71CFCB', '#2C8C86', '#A6DDBF', '#4E8A57', '#93A866', '#A7A3DE', '#63768D'],
+    names: ['navy', 'ocean', 'sky', 'aqua', 'teal', 'seafoam', 'kelp', 'moss', 'lavender', 'slate']
   },
   paper: {
     name: 'Paper', note: 'Ink on paper', paper: true,
@@ -1628,7 +1631,7 @@ function paletteColor(i, pal) {
   return isDark() ? nightOf(c) : c;
 }
 function markColorOn(hex) {
-  if (!isDark()) return 'rgba(58,46,39,.52)';
+  if (!isDark()) return lum(hex) > .3 ? 'rgba(58,46,39,.52)' : 'rgba(255,248,240,.85)';   // light marks on deep cells
   return lum(hex) > .2 ? 'rgba(30,22,16,.6)' : 'rgba(255,246,235,.74)';
 }
 
@@ -1857,7 +1860,7 @@ function miniBoard(n, reg, colors, opts) {
     for (k = 0; k < n; k++) s += '<path d="' + regionPath(loops[k], d, R_OUT, R_IN) + '" fill="' + colors[k] + '"/>';
     if (opts.grid !== false) s += '<path d="' + innerGrid(n, reg, d) + '" stroke="var(--grid)" stroke-width="' + (opts.gridW || 2.4) + '" fill="none"/>';
   }
-  (opts.dots || []).forEach(function (i) { s += '<circle cx="' + ((i % n) * U + 50) + '" cy="' + (((i / n) | 0) * U + 50) + '" r="11" fill="' + (opts.dotColor || 'var(--mark)') + '"/>'; });
+  (opts.dots || []).forEach(function (i) { s += '<circle cx="' + ((i % n) * U + 50) + '" cy="' + (((i / n) | 0) * U + 50) + '" r="11" fill="' + (opts.dotColor || (paper ? 'var(--mark)' : markColorOn(colors[reg[i]]))) + '"/>'; });
   (opts.stars || []).forEach(function (i) { s += '<g transform="translate(' + ((i % n) * U + 50) + ' ' + (((i / n) | 0) * U + 50) + ')">' + pieceSVG(opts.piece || S.piece, 1.05) + '</g>'; });
   return s + (opts.extra || '') + '</svg>';
 }
@@ -1889,8 +1892,7 @@ BoardView.prototype.build = function (reg, colorIdx, pal) {
   this.host.innerHTML = '';
   this.vb = [-pad, -pad, size + 2 * pad, size + 2 * pad];
   var svg = this.svg = el('svg', { viewBox: this.vb.join(' '), 'aria-label': 'Puzzle board', role: 'img' }, this.host);
-  var defs = el('defs', {}, svg);
-  if (S.patterns && !paper) this._patterns(defs);
+  el('defs', {}, svg);
   this.gWell = el('g', {}, svg); this.gReg = el('g', {}, svg); this.gGrid = el('g', {}, svg);
   this.gSpot = el('g', {}, svg); this.gClash = el('g', {}, svg); this.gMarks = el('g', {}, svg); this.gFx = el('g', {}, svg);
   this.colors = [];
@@ -1908,27 +1910,10 @@ BoardView.prototype.build = function (reg, colorIdx, pal) {
       var dd = regionPath(loops[k], d, R_OUT, R_IN);
       this.regionD.push(dd);
       el('path', { d: dd, fill: this.colors[k] }, this.gReg);
-      if (S.patterns) el('path', { d: dd, fill: 'url(#' + this.id + 'rp' + (colorIdx[k] % 10) + ')' }, this.gReg);
     }
     el('path', { d: innerGrid(n, reg, d), stroke: 'var(--grid)', 'stroke-width': 2.2, fill: 'none', 'stroke-linecap': 'round' }, this.gGrid);
   }
   this.vis = new Uint8Array(n * n); this.nodes = new Array(n * n);
-};
-BoardView.prototype._patterns = function (defs) {
-  var ink = isDark() ? 'rgba(255,246,235,.28)' : 'rgba(58,46,39,.2)', id = this.id;
-  function P(i, size, rot) { return el('pattern', { id: id + 'rp' + i, width: size, height: size, patternUnits: 'userSpaceOnUse', patternTransform: rot ? 'rotate(' + rot + ')' : '' }, defs); }
-  function line(p, d, w) { el('path', { d: d, stroke: ink, 'stroke-width': w || 3.5, fill: 'none' }, p); }
-  var p;
-  p = P(0, 20); line(p, 'M0 10H20');
-  p = P(1, 20); line(p, 'M10 0V20');
-  p = P(2, 20, 45); line(p, 'M10 0V20');
-  p = P(3, 20, -45); line(p, 'M10 0V20');
-  p = P(4, 25); line(p, 'M0 12.5H25M12.5 0V25', 2.6);
-  p = P(5, 22, 45); line(p, 'M0 11H22M11 0V22', 2.6);
-  p = P(6, 20); el('circle', { cx: 10, cy: 10, r: 3, fill: ink }, p);
-  p = P(7, 33.4); el('circle', { cx: 16.7, cy: 16.7, r: 7, fill: 'none', stroke: ink, 'stroke-width': 2.4 }, p);
-  p = P(8, 25); el('rect', { x: 8, y: 8, width: 9, height: 9, fill: 'none', stroke: ink, 'stroke-width': 2.6 }, p);
-  p = P(9, 33.4); line(p, 'M0 22 8.35 12 16.7 22 25 12 33.4 22', 3);
 };
 BoardView.prototype.xy = function (i) { return [(i % this.n) * U + U / 2, ((i / this.n) | 0) * U + U / 2]; };
 BoardView.prototype.toSvg = function (cx, cy) {
@@ -2267,7 +2252,7 @@ function newGameFrom(board, opts) {
   return {
     regions: board.regions, solution: board.solution, tier: board.tier, score: board.score, id: board.id,
     daily: board.daily || null, ink: !!opts.ink, attempt: opts.attempt || 1,
-    marks: '0'.repeat(NN), hist: [], fut: [], elapsed: 0, hints: 0, hadConflict: false,
+    marks: '0'.repeat(NN), hist: [], fut: [], elapsed: 0, hints: 0, hadConflict: false, retracted: false,
     solved: false, failed: false, moved: false, started: Date.now()
   };
 }
@@ -2362,23 +2347,24 @@ function afterChange(fx) {
 function tapCell(i) {
   var before = snapshot(), m = marks[i], fx = {};
   if (game.ink) {
-    if (m === STAR) { view.shake(i); sfx.soft(); toast('Ink stars are permanent.'); return; }
-    marks[i] = m === EMPTY ? DOT : EMPTY;
-    if (marks[i] === DOT) { fx.delay = {}; fx.ripple = {}; fx.ripple[i] = 1; sfx.dot(); } else sfx.erase();
+    // In Ink every mark is permanent: a dot can't be erased or turned into a star
+    if (m !== EMPTY) { view.shake(i); sfx.soft(); toast('Ink marks are permanent.'); return; }
+    marks[i] = DOT; fx.delay = {}; fx.ripple = {}; fx.ripple[i] = 1; sfx.dot();
     haptic('light');
     pushHist(before);
+    if (isSolution(i)) { view.render(marks, fx); inkFail(i, 'dot'); return; }
     if (!seen.inkHold) { markSeen('inkHold'); toast('Press and hold a cell to place a star.', 3200); }
     afterChange(fx);
     return;
   }
   if (m === EMPTY) { marks[i] = DOT; fx.ripple = {}; fx.ripple[i] = 1; sfx.dot(); haptic('light'); }
   else if (m === DOT || m === AUTO) { marks[i] = STAR; fx.delay = addAutoFor(i); fx.bloom = i; }
-  else { marks[i] = EMPTY; dropStaleAuto(); sfx.erase(); haptic('light'); }
+  else { marks[i] = EMPTY; game.retracted = true; dropStaleAuto(); sfx.erase(); haptic('light'); }
   pushHist(before);
   afterChange(fx);
 }
 function placeInk(i) {
-  if (marks[i] === STAR) return;
+  if (marks[i] !== EMPTY) return;
   marks[i] = STAR;
   var delays = addAutoFor(i);
   game.fut = [];
@@ -2390,41 +2376,36 @@ function placeInk(i) {
   }
   afterChange({ bloom: i, delay: delays });
 }
-function inkFail(i) {
-  game.failed = true; game.failCell = i;
+function inkFail(i, kind) {
+  game.failed = true; game.failCell = i; game.failKind = kind || 'star';
   saveGame();
   var st = store.get(K.stats, {}); st.inkFailed = (st.inkFailed || 0) + 1; store.set(K.stats, st);
   setTimeout(function () { view.tint(i, 'var(--rose)'); view.shake(i); sfx.wrong(); haptic('double'); }, 420);
   updateGameChrome();
   setTimeout(showInkFailSheet, 1200);
 }
-// In Ink mode stars (and the dots they placed) survive undo/redo/clear
-function inkKeep(src) {
-  var cov = new Uint8Array(NN), out = new Uint8Array(NN);
-  starList().forEach(function (s) { coverOf(s, cov); });
-  for (var i = 0; i < NN; i++) {
-    var v = +src[i];
-    if (marks[i] === STAR) v = STAR;
-    else if (v === STAR) v = cov[i] ? AUTO : EMPTY;
-    else if (v === EMPTY && cov[i]) v = AUTO;
-    out[i] = v;
-  }
-  return out;
+// Clear sky needs every star to stay where it was first placed
+function noteRetract(before) {
+  for (var i = 0; i < NN; i++) if (+before[i] === STAR && marks[i] !== STAR) { game.retracted = true; return; }
 }
+// Ink marks are permanent, so undo, redo and clear are off in Ink mode
 function undo() {
   if (!game.hist.length || game.solved || game.failed) return;
-  game.fut.push(snapshot());
-  var prev = game.hist.pop();
-  if (game.ink) marks.set(inkKeep(prev)); else restore(prev);
-  if (!game.ink) dropStaleAuto();
+  if (game.ink) { toast('Ink marks are permanent.'); return; }
+  var cur = snapshot();
+  game.fut.push(cur);
+  restore(game.hist.pop());
+  dropStaleAuto();
+  noteRetract(cur);
   sfx.soft();
   afterUndoRedo();
 }
 function redo() {
-  if (!game.fut.length || game.solved || game.failed) return;
-  game.hist.push(snapshot());
-  var nxt = game.fut.pop();
-  if (game.ink) marks.set(inkKeep(nxt)); else restore(nxt);
+  if (!game.fut.length || game.solved || game.failed || game.ink) return;
+  var cur = snapshot();
+  game.hist.push(cur);
+  restore(game.fut.pop());
+  noteRetract(cur);
   sfx.soft();
   afterUndoRedo();
   checkWin();
@@ -2435,17 +2416,16 @@ function afterUndoRedo() {
   updateGameChrome(); saveGame();
 }
 function clearBoard() {
-  if (game.solved || game.failed) return;
-  var any = false, i;
-  for (i = 0; i < NN; i++) if (marks[i] && !(game.ink && marks[i] === STAR)) { any = true; break; }
-  if (!any) return;
-  pushHist(snapshot());
-  if (game.ink) marks.set(inkKeep('0'.repeat(NN)));
-  else marks.fill(0);
+  if (game.solved || game.failed || !canClear()) return;
+  var before = snapshot();
+  pushHist(before);
+  marks.fill(0);
+  noteRetract(before);
   afterUndoRedo();
 }
 function canClear() {
-  for (var i = 0; i < NN; i++) if (marks[i] && !(game.ink && marks[i] === STAR)) return true;
+  if (game.ink) return false;
+  for (var i = 0; i < NN; i++) if (marks[i]) return true;
   return false;
 }
 
@@ -2457,8 +2437,8 @@ function onDown(ev) {
   if (i < 0) return;
   ev.preventDefault();
   try { $('#board').setPointerCapture(ev.pointerId); } catch (e) { }
-  drag = { id: ev.pointerId, start: i, last: i, moved: false, mode: null, before: snapshot(), changed: false, held: false };
-  if (game.ink && marks[i] !== STAR) {
+  drag = { id: ev.pointerId, start: i, last: i, moved: false, mode: null, before: snapshot(), changed: false, held: false, failAt: -1 };
+  if (game.ink && marks[i] === EMPTY) {
     drag.ringT = setTimeout(function () { if (drag && !drag.moved) view.holdStart(i, HOLD_MS - 110); }, 110);
     drag.holdT = setTimeout(function () {
       if (drag && !drag.moved) { drag.held = true; view.holdEnd(); placeInk(drag.start); }
@@ -2467,7 +2447,12 @@ function onDown(ev) {
 }
 function cancelHold() { if (!drag) return; clearTimeout(drag.ringT); clearTimeout(drag.holdT); view.holdEnd(); }
 function applyDrag(i, delay, fx) {
-  if (drag.mode === 'dot' && marks[i] === EMPTY) { marks[i] = DOT; fx.delay[i] = delay; fx.ripple[i] = 1; drag.changed = true; return 1; }
+  if (drag.failAt >= 0) return 0;                               // an Ink dot already landed on a star cell
+  if (drag.mode === 'dot' && marks[i] === EMPTY) {
+    marks[i] = DOT; fx.delay[i] = delay; fx.ripple[i] = 1; drag.changed = true;
+    if (game.ink && isSolution(i)) drag.failAt = i;
+    return 1;
+  }
   if (drag.mode === 'erase' && marks[i] === DOT) { marks[i] = EMPTY; drag.changed = true; return 1; }
   return 0;
 }
@@ -2481,7 +2466,7 @@ function onMove(ev) {
   if (!drag.moved) {
     drag.moved = true; cancelHold();
     var m0 = marks[drag.start];
-    drag.mode = m0 === EMPTY ? 'dot' : m0 === DOT ? 'erase' : null;
+    drag.mode = m0 === EMPTY ? 'dot' : m0 === DOT && !game.ink ? 'erase' : null;
     if (drag.mode) {
       var sp = view.xy(drag.start);
       view.trailStart(sp, drag.mode === 'erase');
@@ -2512,13 +2497,19 @@ function onUp(ev) {
   if (d.held) return;
   if (!d.moved) { tapCell(d.start); return; }
   view.trailEnd();
-  if (d.changed) { pushHist(d.before); afterChange({}); }
+  finishDrag(d);
 }
 function onCancel(ev) {
   if (!drag || ev.pointerId !== drag.id) return;
   var d = drag; drag = null;
   clearTimeout(d.ringT); clearTimeout(d.holdT); view.holdEnd(); view.trailEnd();
-  if (d.changed) { pushHist(d.before); afterChange({}); }
+  finishDrag(d);
+}
+function finishDrag(d) {
+  if (!d.changed) return;
+  pushHist(d.before);
+  if (d.failAt >= 0) { view.render(marks, {}); inkFail(d.failAt, 'dot'); return; }
+  afterChange({});
 }
 
 /* ---------------------------------------------------------------- timer */
@@ -2562,17 +2553,17 @@ function streakInfo(st) {
 var MILESTONES = [
   { id: 'first', name: 'First light', desc: 'Solve your first puzzle', glyph: 'spark' },
   { id: 'daily', name: 'Daybreak', desc: 'Solve a daily puzzle', glyph: 'sun' },
-  { id: 'clear', name: 'Clear sky', desc: 'Solve with no hints or clashes', glyph: 'check' },
+  { id: 'clear', name: 'Clear sky', desc: 'Solve with no hints and no stars taken back', glyph: 'check' },
   { id: 'ink', name: 'Steady hand', desc: 'Solve a puzzle in Ink mode', glyph: 'nib' },
   { id: 'ten', name: 'Constellation', desc: 'Solve 10 puzzles', glyph: 'const' },
   { id: 'expert', name: 'Deep sky', desc: 'Solve an Expert puzzle', glyph: 'moon' },
   { id: 'week', name: 'Seven days', desc: 'Play 7 days in a row', glyph: 'cal' },
   { id: 'owl', name: 'Night owl', desc: 'Solve a puzzle after 10 pm', glyph: 'owl' },
   { id: 'swift', name: 'Swift', desc: 'Solve a Hard puzzle in under 4 minutes', glyph: 'bolt' },
-  { id: 'north', name: 'North star', desc: 'Flawless Expert solve in Ink mode', glyph: 'north' }
+  { id: 'north', name: 'North star', desc: 'Clear sky on an Expert puzzle in Ink mode', glyph: 'north' }
 ];
 function recordStats() {
-  var st = loadStats(), t = game.daily ? 'Daily' : game.tier, flawless = !game.hints && !game.hadConflict;
+  var st = loadStats(), t = game.daily ? 'Daily' : game.tier, flawless = !game.hints && !game.retracted;   // "Clear sky": no hints, no star ever taken back
   var b = st[t] || { solved: 0, best: 0, total: 0, flawless: 0 }, prevBest = b.best;
   b.solved++; b.total += game.elapsed;
   if (!b.best || game.elapsed < b.best) b.best = game.elapsed;
@@ -2787,8 +2778,8 @@ function updateGameChrome() {
   $('#progress').dataset.n = n;
   $('#progress').setAttribute('aria-label', n + ' of ' + N + ' stars placed');
   var over = game.solved || game.failed;
-  $('#t-undo').disabled = over || !game.hist.length;
-  $('#t-redo').disabled = over || !game.fut.length;
+  $('#t-undo').disabled = over || game.ink || !game.hist.length;
+  $('#t-redo').disabled = over || game.ink || !game.fut.length;
   $('#t-clear').disabled = over || !canClear();
   $('#t-hint').disabled = over;
   $('#t-hint').classList.toggle('on', !!hint);
@@ -2899,7 +2890,7 @@ function renderPlay() {
   html += '<div class="card"><div class="card-h"><h2>New puzzle</h2></div><div class="tiers" role="tablist">' +
     TIERS.map(function (t) { return '<button data-t="' + t + '" class="' + (t === tier ? 'sel' : '') + '">' + t + '</button>'; }).join('') + '</div>' +
     '<div class="tier-note"><span class="pips">' + [0, 1, 2, 3].map(function (k) { return '<i class="' + (k <= TIERS.indexOf(tier) ? 'on' : '') + '"></i>'; }).join('') + '</span><span>' + TIER_NOTE[tier] + '</span></div>' +
-    '<div class="mode-row"><span class="ic">' + I.nib + '</span><span class="txt"><b>Ink mode</b><span>Stars are permanent. Dots can be undone.</span></span><button class="switch' + (S.ink ? ' on' : '') + '" id="ink-switch" role="switch" aria-checked="' + S.ink + '" aria-label="Ink mode"></button></div>' +
+    '<div class="mode-row"><span class="ic">' + I.nib + '</span><span class="txt"><b>Ink mode</b><span>Stars and dots are permanent.</span></span><button class="switch' + (S.ink ? ' on' : '') + '" id="ink-switch" role="switch" aria-checked="' + S.ink + '" aria-label="Ink mode"></button></div>' +
     '<button class="btn btn-primary mt" id="start-btn">' + I.play + 'Start ' + tier + (S.ink ? ' in Ink' : '') + '</button></div>';
   if (!seen.lesson) html += '<div class="card"><div class="lesson-card"><div class="thumb">' + lessonThumb() + '</div><div><h3>New to the game?</h3><p>Learn the rules with a short guided puzzle.</p></div></div><button class="btn btn-soft mt" id="c-lesson">' + I.book + 'Start lesson</button></div>';
   v.innerHTML = html;
@@ -2939,7 +2930,7 @@ function solvedArt() {
 function showSolvedSheet(r) {
   if (!game || !game.solved) return;
   var badges = '';
-  if (r.flawless) badges += '<span class="badge sage">' + I.spark + 'Flawless</span>';
+  if (r.flawless) badges += '<span class="badge sage">' + I.spark + 'Clear sky</span>';
   if (game.ink) badges += '<span class="badge ink">' + I.nib + 'Inked</span>';
   if (game.daily) badges += '<span class="badge gold">' + I.sun + 'Daily</span>';
   var unlock = (r.unlocked || []).map(function (m) { return '<div class="unlock">' + medal(m, true) + '<div><b>New milestone: ' + esc(m.name) + '</b><span>' + esc(m.desc) + '</span></div></div>'; }).join('');
@@ -2954,7 +2945,8 @@ function showSolvedSheet(r) {
 }
 function showInkFailSheet() {
   if (!game || !game.failed) return;
-  openSheet('<h2 class="center">Incorrect star</h2><p class="lead center">Stars cannot be undone in Ink mode, so this puzzle has ended.</p>' +
+  var dot = game.failKind === 'dot';
+  openSheet('<h2 class="center">' + (dot ? 'Incorrect dot' : 'Incorrect star') + '</h2><p class="lead center">' + (dot ? 'That cell holds a star. ' : '') + 'Ink marks cannot be undone, so this puzzle has ended.</p>' +
     '<button class="btn btn-primary" id="f-retry">' + I.restore + 'Retry puzzle</button><button class="btn btn-soft" id="f-new">New puzzle</button><button class="btn btn-text" id="f-show">Show solution</button>', function (b) {
       $('#f-retry', b).onclick = retryBoard;
       $('#f-new', b).onclick = function () { closeSheet(); startNew(game.daily ? null : game.tier); };
@@ -3002,7 +2994,7 @@ function boardFromHash() {
 function showInkIntro() {
   markSeen('inkIntro');
   openSheet('<div class="center" style="margin-top:4px"><span style="display:inline-grid;place-items:center;width:58px;height:58px;border-radius:18px;background:var(--surface-2)">' + I.nib.replace('<svg', '<svg style="width:30px;height:30px"') + '</span></div>' +
-    '<h2 class="center">Ink mode</h2><p class="lead center">Dots work as usual and can be undone. To place a star, <b>press and hold</b> a cell. Stars cannot be undone, and one incorrect star ends the puzzle.</p>' +
+    '<h2 class="center">Ink mode</h2><p class="lead center">Tap for a dot. To place a star, <b>press and hold</b> a cell. Every dot and star is permanent, and one incorrect mark ends the puzzle.</p>' +
     '<button class="btn btn-primary" id="ii-ok">OK</button>', function (b) { $('#ii-ok', b).onclick = closeSheet; });
 }
 
@@ -3045,7 +3037,7 @@ function renderLearn() {
     '<div class="card"><div class="card-h"><h2>Controls</h2></div><div class="rules">' +
     rule(I.tap, '<b>' + TAP + '</b> once for a dot (no star), twice for a star, three times to clear.') +
     rule(I.drag, '<b>Drag</b> across cells to add dots. Start on a dot to erase.') +
-    rule(I.hold, '<b>Ink mode:</b> ' + tap + ' for dots; <b>press and hold</b> to place a permanent star.') +
+    rule(I.hold, '<b>Ink mode:</b> ' + tap + ' for a dot; <b>press and hold</b> for a star. Both are permanent.') +
     rule(I.lantern, '<b>Hint</b> checks your marks for mistakes, then shows the next step.') +
     (FINE ? rule(I.undo, '<b>Keyboard:</b> ' + KEYS + '.') : '') +
     '</div></div>' +
@@ -3108,7 +3100,7 @@ function renderStats() {
   var html = '<h1 class="page-title">Statistics</h1><div class="tiles">' +
     tileH(I.spark, 'Solved', total, total ? 'All difficulties' : 'None yet') +
     tileH(I.sun, 'Day streak', sk.current, 'Best ' + sk.best + (sk.best === 1 ? ' day' : ' days')) +
-    tileH(I.check, 'Flawless', flaw, total ? Math.round(flaw / total * 100) + '% of solves' : 'No hints or clashes') +
+    tileH(I.check, 'Clear sky', flaw, total ? Math.round(flaw / total * 100) + '% of solves' : 'No hints, no stars taken back') +
     tileH(I.clock, 'Time played', st.totalTime ? fmtLong(st.totalTime) : '0 min', total ? 'Average ' + fmtTime((st.totalTime || 0) / total) + ' per puzzle' : 'None yet') + '</div>';
   // calendar
   var now = new Date(), m = new Date(now.getFullYear(), now.getMonth() + statsMonth, 1), days = solvedDays(st), daily = {};
@@ -3148,7 +3140,7 @@ function renderStats() {
   // recent
   var rec = hist.slice(-6).reverse();
   html += '<div class="card recent"><div class="card-h"><h2>Recent</h2></div>' + (rec.length ? '<div class="list" style="box-shadow:none;background:var(--surface-2)">' + rec.map(function (h) {
-    var tags = (h.y ? '<span class="tag tag-daily">Daily</span> ' : '') + (h.i ? '<span class="tag tag-ink">Ink</span> ' : '') + (h.f ? '<span class="tag" style="background:var(--sage-soft);color:var(--sage)">Flawless</span>' : '');
+    var tags = (h.y ? '<span class="tag tag-daily">Daily</span> ' : '') + (h.i ? '<span class="tag tag-ink">Ink</span> ' : '') + (h.f ? '<span class="tag" style="background:var(--sage-soft);color:var(--sage)">Clear sky</span>' : '');
     return '<div class="li"><span class="lbl"><b style="font-weight:600">' + h.t + '</b> ' + tags + '<span class="sub">' + relDay(h.d) + '</span></span><span class="val num">' + fmtTime(h.ms) + '</span></div>';
   }).join('') + '</div>' : '<p class="empty">No solves yet.</p>') + '</div>';
   v.innerHTML = html;
@@ -3186,8 +3178,7 @@ function lookControls(compact) {
     PIECES.map(function (p) { return '<button class="pick' + (S.piece === p ? ' sel' : '') + '" data-piece="' + p + '" aria-pressed="' + (S.piece === p) + '"><div class="pv pc">' + piecePreviewSVG(p, 38) + '</div><span class="nm">' + PIECE_NAMES[p] + '</span></button>'; }).join('') + '</div>';
   html += '<div class="group-label">Display</div><div class="list">' +
     segRow('mark', 'Marks', [['dot', 'Dot'], ['x', 'Cross']]) +
-    segRow('theme', 'Theme', [['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]) +
-    switchRow('patterns', 'Colour-blind patterns', 'Adds a distinct texture to each region.') + '</div>' +
+    segRow('theme', 'Theme', [['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]) + '</div>' +
     '<div class="group-label">Assists</div><div class="list">' +
     switchRow('autoDots', 'Auto-dots around stars', 'Marks the 8 cells around a new star.') +
     switchRow('autoLines', 'Auto-dots in lines', 'Also marks the star\'s row, column and region.') +
@@ -3199,7 +3190,7 @@ function wireLook(root, after) {
   $$('[data-pal]', root).forEach(function (b) { b.onclick = function () { S.palette = b.dataset.pal; saveSettings(); settingsChanged('palette'); after(); }; });
   $$('[data-piece]', root).forEach(function (b) { b.onclick = function () { S.piece = b.dataset.piece; saveSettings(); settingsChanged('piece'); after(); }; });
   $$('.switch[data-k]', root).forEach(function (sw) {
-    sw.onclick = function () { var k = sw.dataset.k; S[k] = !S[k]; saveSettings(); sw.classList.toggle('on', S[k]); sw.setAttribute('aria-checked', S[k]); settingsChanged(k); if (k === 'patterns') after(); if (k === 'sound' && S.sound) sfx.ok(); if (k === 'haptics' && S.haptics) haptic('strong'); };
+    sw.onclick = function () { var k = sw.dataset.k; S[k] = !S[k]; saveSettings(); sw.classList.toggle('on', S[k]); sw.setAttribute('aria-checked', S[k]); settingsChanged(k); if (k === 'sound' && S.sound) sfx.ok(); if (k === 'haptics' && S.haptics) haptic('strong'); };
   });
   $$('.mini-seg[data-k]', root).forEach(function (sg) {
     $$('button', sg).forEach(function (bt) { bt.onclick = function () { S[sg.dataset.k] = bt.dataset.v; saveSettings(); $$('button', sg).forEach(function (x) { x.classList.toggle('sel', x === bt); }); settingsChanged(sg.dataset.k); if (sg.dataset.k === 'theme') after(); }; });
@@ -3209,7 +3200,7 @@ function settingsChanged(k) {
   if (k === 'theme') applyTheme();
   if (game) {
     if (k === 'palette') game._colors = assignColors(game._reg, N, hashStr(game.id + ':' + S.palette));
-    if (screen === 'game' && view && ['palette', 'theme', 'patterns', 'mark', 'piece'].indexOf(k) >= 0) { buildGameBoard(); if (hint) renderHint(); if (game.solved) view.constellation(starList()); }
+    if (screen === 'game' && view && ['palette', 'theme', 'mark', 'piece'].indexOf(k) >= 0) { buildGameBoard(); if (hint) renderHint(); if (game.solved) view.constellation(starList()); }
     if (screen === 'game' && view && k === 'autoCheck') view.setClashes(S.autoCheck ? conflicts : []);
     if (screen === 'game') updateGameChrome();
   }

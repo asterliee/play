@@ -1090,11 +1090,12 @@ svg { display: block; }
   //   Expert  needs two or more big counts (4+ units) whatever order you solve in:
   //           the hardest boards that are still solvable step by step without guessing
   // minBig: exact minimum number of big counts (minBigCounts); falls back to the greedy count.
-  function gradeOf(res, minBig) {
+  function gradeOf(res, minBig, n) {
     if (!res.solved) return 'Unsolvable';
     var c = res.counts;
     if (res.maxLevel <= 2) return 'Easy';
-    if (res.maxLevel === 3 || (res.maxLevel === 4 && c[4] <= 2)) return 'Medium';
+    if (res.maxLevel === 3 || (res.maxLevel === 4 && c[4] <= (small(n) ? 1 : 2))) return 'Medium';
+    if (small(n)) return 'Hard';                                // small boards top out at Hard
     var big = minBig != null ? minBig : c[7];
     if (big >= 2) return 'Expert';
     return 'Hard';
@@ -1304,31 +1305,45 @@ svg { display: block; }
     Expert: { allow: PURE, maximize: true, lo: 150, iters: 400000, T0: 12, T1: 0.3,
               extra: function (r) { return r.counts[7] >= 2; } }
   };
-  function tierAccepts(name, res, L) {
-    var T = TIERS[name];
-    if (!res.solved || res.score < T.lo || !T.extra(res)) return false;
-    var mb = (name === 'Expert' || name === 'Hard') && L ? minBigCounts(L, 3) : null;
-    return gradeOf(res, mb) === name;
+  // Small boards (6×6) get their own targets: everything scales down, and they top out at
+  // Hard, which there means "needs pairs or triples" (big-set counting needs a bigger board).
+  var TIERS_SMALL = {
+    Easy:   { allow: 2 | 4, target: 2, lo: 1, iters: 40000, T0: 2, T1: 0.1,
+              extra: function (r) { return r.counts[2] >= 1; } },
+    Medium: { allow: 2 | 4 | 8 | 16, target: 8, lo: 3, iters: 40000, T0: 3, T1: 0.2,
+              extra: function (r) { return r.counts[3] + r.counts[4] >= 1; } },
+    Hard:   { allow: PURE, maximize: true, lo: 20, iters: 50000, T0: 6, T1: 0.3,
+              extra: function (r) { return r.maxLevel >= 4; } }
+  };
+  function small(n) { return !!n && n < 9; }
+  function tiersFor(n) { return small(n) ? TIERS_SMALL : TIERS; }
+  function tierAccepts(name, res, L, n) {
+    n = n || (L && L.N) || 10;
+    var T = tiersFor(n)[name];
+    if (!T || !res.solved || res.score < T.lo || !T.extra(res)) return false;
+    var mb = !small(n) && (name === 'Expert' || name === 'Hard') && L ? minBigCounts(L, 3) : null;
+    return gradeOf(res, mb, n) === name;
   }
   // generate(tierName, {rng|seed, deadline, N}) -> board or null (if the deadline hit first)
   // board = { regions:Int8Array, solution:[col per row], score, counts, grade }
   function generate(name, opts) {
     opts = opts || {};
-    var T = TIERS[name], N = opts.N || 10;
+    var N = opts.N || 10, T = tiersFor(N)[name];
+    if (!T) return null;
     var rng = opts.rng || makeRng(opts.seed || ((Math.random() * 4294967296) >>> 0));
     var deadline = opts.deadline || Infinity;
     while (Date.now() < deadline) {
       var best = anneal({
         N: N, rng: rng, iters: T.iters, T0: T.T0, T1: T.T1, allow: T.allow, cost: GEN_COST,
-        minSize: N >= 9 ? 4 : 3, maxSize: Math.round(N * N * 0.18), shape: 0.7, deadline: deadline,
+        minSize: N >= 9 ? 4 : 3, maxSize: small(N) ? Math.round(N * 1.9) : Math.round(N * N * 0.18), shape: 0.7, deadline: deadline,
         objective: T.maximize ? null : function (res) { return 100 - Math.abs(res.score - T.target); },
-        accept: T.maximize ? null : function (res) { return tierAccepts(name, res); }
+        accept: T.maximize ? null : function (res) { return tierAccepts(name, res, null, N); }
       });
       if (!best) continue;
       // grade with the full game technique set (that is what the player and hints use)
       var L = new Layout(N).set(best.regions);
       var res = solveLogic(L, PURE, false, GEN_COST);
-      if (!tierAccepts(name, res, L)) continue;
+      if (!tierAccepts(name, res, L, N)) continue;
       var sol = [];
       for (var k = 0; k < res.solution.length; k++) sol.push(res.solution[k] % N);
       return { regions: best.regions, solution: sol, score: res.score, counts: res.counts, grade: name };
@@ -1379,7 +1394,7 @@ svg { display: block; }
     var L = new Layout(N).set(regions);
     var res = solveLogic(L, PURE, false);
     res.minBig = res.solved ? minBigCounts(L, 3) : null;
-    res.grade = gradeOf(res, res.minBig);
+    res.grade = gradeOf(res, res.minBig, N);
     return res;
   }
 
@@ -1421,6 +1436,17 @@ var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
 var APP_VERSION = '2.1';
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
+// Board sizes: 10×10 is the classic game; 6×6 is a quick game that tops out at Hard.
+// N and NN always describe the puzzle that is loaded (see setSize).
+var SIZES = [10, 6];
+var STAT_KEYS = ['Easy', 'Medium', 'Hard', 'Expert', 'Daily', '6:Easy', '6:Medium', '6:Hard'];
+function tiersFor(n) { return n === 6 ? ['Easy', 'Medium', 'Hard'] : TIERS; }
+function sizeLabel(n) { return n + '×' + n; }
+function boardSize(regions) { return Math.round(Math.sqrt(regions.length)); }
+function qKey(tier, n) { return !n || n === 10 ? tier : n + ':' + tier; }      // queue and stats key
+function chosenSize() { var n = store.get(K.size, 10); return SIZES.indexOf(n) >= 0 ? n : 10; }
+function chosenTier(n) { var t = store.get(K.tier, 'Medium'), list = tiersFor(n || chosenSize()); return list.indexOf(t) >= 0 ? t : list[list.length - 1]; }
+function setSize(n) { if (n === N) return; N = n; NN = n * n; geoN = E.geometry(n); }
 var TIER_NOTE = {
   Easy: 'Last cells and locked lines.',
   Medium: 'Squeezes and simple counting.',
@@ -1447,7 +1473,7 @@ var store = {
 };
 var K = {
   settings: 'sb1:settings', game: 'sb1:game', daily: 'sb1:daily', stats: 'sb1:stats', queue: 'sb1:queue',
-  tier: 'sb1:tier', played: 'sb1:played', seen: 'sb1:seen', lesson: 'sb1:lesson'
+  tier: 'sb1:tier', played: 'sb1:played', seen: 'sb1:seen', lesson: 'sb1:lesson', size: 'sb1:size'
 };
 
 var DEFAULTS = {
@@ -2154,20 +2180,27 @@ var BANK = window.SB_BANK || { Easy: [], Medium: [], Hard: [], Expert: [] };
 function queue() { return store.get(K.queue, { Easy: [], Medium: [], Hard: [], Expert: [] }); }
 // A stored entry ({r, s, sc}) becomes a playable board, in one of 8 orientations
 function makeBoard(entry, tier, t) {
-  var reg = E.decode(entry.r);
-  if (t) reg = E.transform(reg, N, t);
+  var n = boardSize(entry.r), reg = E.decode(entry.r);
+  if (t) reg = E.transform(reg, n, t);
   reg = E.canonical(reg);
-  var cs = E.countSolutions(N, reg, 2);
+  var cs = E.countSolutions(n, reg, 2);
   if (cs.count !== 1) return null;
   return { regions: E.encode(reg), solution: cs.solution.join(''), tier: tier, score: entry.sc, id: E.boardId(reg) };
 }
-function takeBoard(tier) {
-  var q = queue();
-  while (q[tier] && q[tier].length) {
-    var e = q[tier].shift();
+function takeBoard(tier, n) {
+  n = n || 10;
+  var q = queue(), key = qKey(tier, n);
+  while (q[key] && q[key].length) {
+    var e = q[key].shift();
     store.set(K.queue, q);
     var b = makeBoard(e, tier, (Math.random() * 8) | 0);
     if (b) { genKick(); return b; }
+  }
+  if (n !== 10) {
+    // small boards are quick to make on the spot (Easy and Medium in milliseconds, Hard in about a second)
+    var g = E.generate(tier, { N: n, deadline: Date.now() + (tier === 'Hard' ? 4000 : 1500) });
+    genKick();
+    return g ? makeBoard({ r: E.encode(E.canonical(g.regions)), sc: Math.round(g.score * 10) / 10 }, tier, 0) : null;
   }
   var list = BANK[tier] || [], played = store.get(K.played, {}), used = played[tier] || [], fresh = [], i;
   for (i = 0; i < list.length; i++) if (used.indexOf(i) < 0) fresh.push(i);
@@ -2192,14 +2225,14 @@ function startWorker() {
     var src = document.getElementById('engine').textContent + '\n;(' + function () {
       self.onmessage = function (ev) {
         var m = ev.data, t0 = Date.now();
-        var b = SBEngine.generate(m.tier, { seed: m.seed, deadline: Date.now() + m.budget });
-        self.postMessage({ tier: m.tier, ms: Date.now() - t0, board: b ? { r: SBEngine.encode(SBEngine.canonical(b.regions)), s: b.solution.join(''), sc: Math.round(b.score * 10) / 10 } : null });
+        var b = SBEngine.generate(m.tier, { N: m.n || 10, seed: m.seed, deadline: Date.now() + m.budget });
+        self.postMessage({ tier: m.tier, n: m.n || 10, ms: Date.now() - t0, board: b ? { r: SBEngine.encode(SBEngine.canonical(b.regions)), s: b.solution.join(''), sc: Math.round(b.score * 10) / 10 } : null });
       };
     }.toString() + ')();';
     worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
     worker.onmessage = function (ev) {
       genBusy = false;
-      if (ev.data.board) { var q = queue(); q[ev.data.tier] = (q[ev.data.tier] || []).concat([ev.data.board]).slice(-6); store.set(K.queue, q); }
+      if (ev.data.board) { var q = queue(), key = qKey(ev.data.tier, ev.data.n); q[key] = (q[key] || []).concat([ev.data.board]).slice(-6); store.set(K.queue, q); }
       genKick(1500);
     };
     worker.onerror = function () { worker = null; genBusy = false; };
@@ -2208,13 +2241,15 @@ function startWorker() {
 function genKick(delay) { clearTimeout(genTimer); genTimer = setTimeout(genNext, delay == null ? 400 : delay); }
 function genNext() {
   if (!worker || genBusy || document.hidden) return;
-  var q = queue(), want = store.get(K.tier, 'Medium');
-  var order = [want].concat(TIERS.filter(function (t) { return t !== want; }));
-  for (var i = 0; i < order.length; i++) {
-    var t = order[i];
-    if ((q[t] || []).length < (t === want ? 3 : 1)) {
+  // keep boards ready for the size and tier you're on first, then one of each 10×10 tier
+  var q = queue(), size = chosenSize(), want = chosenTier(10), jobs = [];
+  if (size !== 10) jobs.push([chosenTier(size), size, 2]);
+  [want].concat(TIERS.filter(function (t) { return t !== want; })).forEach(function (t) { jobs.push([t, 10, t === want && size === 10 ? 3 : 1]); });
+  for (var i = 0; i < jobs.length; i++) {
+    var t = jobs[i][0], n = jobs[i][1];
+    if ((q[qKey(t, n)] || []).length < jobs[i][2]) {
       genBusy = true;
-      worker.postMessage({ tier: t, seed: (Math.random() * 4294967296) >>> 0, budget: t === 'Expert' ? 120000 : 30000 });
+      worker.postMessage({ tier: t, n: n, seed: (Math.random() * 4294967296) >>> 0, budget: n !== 10 ? 8000 : t === 'Expert' ? 120000 : 30000 });
       return;
     }
   }
@@ -2235,8 +2270,10 @@ function newGameFrom(board, opts) {
 }
 // A saved game is only used if it looks whole (guards against damaged or foreign data)
 function validGame(g) {
-  return !!(g && typeof g.regions === 'string' && /^[0-9a-z]{100}$/.test(g.regions) && typeof g.solution === 'string' && /^[0-9]{10}$/.test(g.solution) &&
-    typeof g.marks === 'string' && /^[0-3]{100}$/.test(g.marks) && Array.isArray(g.hist) && Array.isArray(g.fut));
+  if (!g || typeof g.regions !== 'string' || typeof g.solution !== 'string' || typeof g.marks !== 'string') return false;
+  var n = g.solution.length;
+  return SIZES.indexOf(n) >= 0 && /^[0-9]+$/.test(g.solution) && new RegExp('^[0-9a-z]{' + n * n + '}$').test(g.regions) &&
+    new RegExp('^[0-3]{' + n * n + '}$').test(g.marks) && Array.isArray(g.hist) && Array.isArray(g.fut);
 }
 function savedGame(key) {
   var g = store.get(key, null);
@@ -2249,6 +2286,7 @@ function solutionCells() { var a = []; for (var r = 0; r < N; r++) a.push(r * N 
 function snapshot() { return Array.prototype.join.call(marks, ''); }
 function restore(s) { for (var i = 0; i < NN; i++) marks[i] = +s[i]; }
 function loadGame(g) {
+  setSize(boardSize(g.regions));
   game = g;
   if (game.hist.length && typeof game.hist[0] !== 'string') { game.hist = []; game.fut = []; }
   game._reg = E.decode(g.regions);
@@ -2404,7 +2442,8 @@ function inkCheckRoom() {
   function unitsOf(c) { return [(c / N) | 0, N + c % N, 2 * N + regOf(c)]; }
   for (i = 0; i < NN; i++) {
     u = unitsOf(i);
-    for (k = 0; k < 3; k++) { if (marks[i] === STAR) star[u[k]] = 1; if (marks[i] === EMPTY) open[u[k]] = 1; }
+    // a fresh dot can still become a star (double tap), so it counts as open until it locks
+    for (k = 0; k < 3; k++) { if (marks[i] === STAR) star[u[k]] = 1; if (marks[i] === EMPTY || (marks[i] === DOT && i === game.lastDot)) open[u[k]] = 1; }
   }
   for (i = 0; i < NN; i++) {
     if (!isSolution(i) || marks[i] === STAR) continue;
@@ -2558,7 +2597,7 @@ function checkWin() {
   setTimeout(function () { showSolvedSheet(result); }, 1900);
 }
 function loadStats() { return store.get(K.stats, {}); }
-function totalSolved(st) { return ['Easy', 'Medium', 'Hard', 'Expert', 'Daily'].reduce(function (a, t) { return a + ((st[t] && st[t].solved) || 0); }, 0); }
+function totalSolved(st) { return STAT_KEYS.reduce(function (a, t) { return a + ((st[t] && st[t].solved) || 0); }, 0); }
 function solvedDays(st) {
   var set = {};
   Object.keys(st.days || {}).forEach(function (k) { var n = normKey(k); if (n) set[n] = 1; });
@@ -2587,7 +2626,7 @@ var MILESTONES = [
   { id: 'north', name: 'North star', desc: 'Clear sky on an Expert puzzle in Ink mode', glyph: 'north' }
 ];
 function recordStats() {
-  var st = loadStats(), t = game.daily ? 'Daily' : game.tier, flawless = !game.hints && !game.retracted;   // "Clear sky": no hints, no star ever taken back
+  var st = loadStats(), t = game.daily ? 'Daily' : qKey(game.tier, N), flawless = !game.hints && !game.retracted;   // "Clear sky": no hints, no star ever taken back
   var b = st[t] || { solved: 0, best: 0, total: 0, flawless: 0 }, prevBest = b.best;
   b.solved++; b.total += game.elapsed;
   if (!b.best || game.elapsed < b.best) b.best = game.elapsed;
@@ -2597,7 +2636,9 @@ function recordStats() {
   st.days = st.days || {}; var dk = dayKey(); st.days[dk] = (st.days[dk] || 0) + 1;
   if (game.ink) st.inkSolved = (st.inkSolved || 0) + 1;
   st.history = st.history || [];
-  st.history.push({ d: Date.now(), t: game.tier, ms: Math.round(game.elapsed), f: flawless ? 1 : 0, i: game.ink ? 1 : 0, y: game.daily ? 1 : 0, h: game.hints });
+  var he = { d: Date.now(), t: game.tier, ms: Math.round(game.elapsed), f: flawless ? 1 : 0, i: game.ink ? 1 : 0, y: game.daily ? 1 : 0, h: game.hints };
+  if (N !== 10) he.n = N;
+  st.history.push(he);
   if (st.history.length > 400) st.history = st.history.slice(-400);
   st.totalTime = (st.totalTime || 0) + game.elapsed;
   // milestones
@@ -2606,7 +2647,7 @@ function recordStats() {
   var tests = {
     first: true, daily: !!game.daily || Object.keys(st.dailyDone || {}).length > 0, clear: flawless, ink: !!game.ink,
     ten: totalSolved(st) >= 10, expert: game.tier === 'Expert' || ((st.Expert && st.Expert.solved) > 0), week: sk.best >= 7,
-    owl: hr >= 22 || hr < 4, swift: game.tier === 'Hard' && !game.daily && game.elapsed < 240000,
+    owl: hr >= 22 || hr < 4, swift: game.tier === 'Hard' && N === 10 && !game.daily && game.elapsed < 240000,
     north: game.tier === 'Expert' && game.ink && flawless
   };
   MILESTONES.forEach(function (m) { if (!st.ms[m.id] && tests[m.id]) { st.ms[m.id] = Date.now(); unlocked.push(m); } });
@@ -2775,7 +2816,7 @@ function goBack() { if (history.state && (history.state.s === 'game' || history.
 
 /* ---------------------------------------------------------------- game screen */
 function buildGameBoard() {
-  if (!view) view = new BoardView($('#board'), N);
+  if (!view || view.n !== N) view = new BoardView($('#board'), N);
   view.build(game._reg, game._colors);
   view.redraw(marks);
   view.setClashes(S.autoCheck ? conflicts : []);
@@ -2792,7 +2833,7 @@ function sizeBoard() {
 }
 function updateGameChrome() {
   if (!game || screen !== 'game') return;
-  $('#g-tier').textContent = game.daily ? 'Daily puzzle' : game.tier;
+  $('#g-tier').textContent = game.daily ? 'Daily puzzle' : (N !== 10 ? sizeLabel(N) + ' ' : '') + game.tier;
   var tags = [];
   if (game.daily) tags.push('<span class="tag tag-daily">' + game.tier + '</span>');
   if (game.ink) tags.push('<span class="tag tag-ink">' + I.nib + 'Ink</span>');
@@ -2865,10 +2906,16 @@ function startBoard(board, opts) {
   saveGame();
   openGame();
 }
-function startNew(tier) {
-  var b = takeBoard(tier || store.get(K.tier, 'Medium'));
-  if (!b) { toast('Could not load a board.'); return; }
-  startBoard(b, { ink: S.ink });
+function startNew(tier, n) {
+  n = n || chosenSize(); tier = tier && tiersFor(n).indexOf(tier) >= 0 ? tier : chosenTier(n);
+  function go() {
+    var b = takeBoard(tier, n);
+    if (!b) { toast('Could not load a board.'); return; }
+    startBoard(b, { ink: S.ink });
+  }
+  // a small Hard board takes about a second to make when none is waiting, so say so first
+  if (n !== 10 && tier === 'Hard' && !(queue()[qKey(tier, n)] || []).length) { toast('Making a ' + sizeLabel(n) + ' puzzle…', 2000); setTimeout(go, 60); }
+  else go();
 }
 function continueGame() {
   var g = savedGame(K.game);
@@ -2888,27 +2935,27 @@ function retryBoard() {
   saveGame(); buildGameBoard(); updateGameChrome();
 }
 function savedProgress(g) {
-  var stars = 0; for (var i = 0; i < NN; i++) if (g.marks[i] === '3') stars++;
+  var stars = 0; for (var i = 0; i < g.marks.length; i++) if (g.marks[i] === '3') stars++;
   return stars;
 }
 
 /* ---------------------------------------------------------------- Play tab */
 function thumbFor(g, withMarks) {
-  var reg = E.decode(g.regions), map = assignColors(reg, N, hashStr(g.id + ':' + S.palette));
+  var n = boardSize(g.regions), reg = E.decode(g.regions), map = assignColors(reg, n, hashStr(g.id + ':' + S.palette));
   var cols = map.map(function (ci) { return paletteColor(ci); });
   var stars = [], dots = [];
-  if (withMarks && g.marks) for (var i = 0; i < NN; i++) { if (g.marks[i] === '3') stars.push(i); else if (g.marks[i] !== '0') dots.push(i); }
-  return miniBoard(N, reg, cols, { paper: PALETTES[S.palette].paper, stars: stars, dots: dots, gridW: 3 });
+  if (withMarks && g.marks) for (var i = 0; i < n * n; i++) { if (g.marks[i] === '3') stars.push(i); else if (g.marks[i] !== '0') dots.push(i); }
+  return miniBoard(n, reg, cols, { paper: PALETTES[S.palette].paper, stars: stars, dots: dots, gridW: 3 });
 }
 function renderPlay() {
   var v = $('#v-play'), st = loadStats(), sk = streakInfo(st), now = new Date();
-  var saved = savedGame(K.game), daily = savedGame(K.daily), tier = store.get(K.tier, 'Medium');
+  var saved = savedGame(K.game), daily = savedGame(K.daily), size = chosenSize(), tier = chosenTier(size), tl = tiersFor(size);
   var html = '<div class="topbar"><div class="brand">' + brandMark(38) + wordmark() + '</div>' +
     '<button class="chip-streak" id="streak-chip" aria-label="Day streak">' + I.spark + '<span class="num">' + sk.current + '</span></button></div>' +
     '<div class="greet"><h1>' + greeting() + '</h1><p>' + DAYS[now.getDay()] + ', ' + now.getDate() + ' ' + MONTHS[now.getMonth()] + (sk.current ? ' · ' + sk.current + '-day streak' : '') + '</p></div>';
   if (saved && !saved.solved && !saved.failed) {
-    var n = savedProgress(saved);
-    html += '<div class="card"><button class="play-card" id="c-continue"><div class="thumb">' + thumbFor(saved, true) + '</div><div class="info"><div class="eyebrow">Continue</div><div class="t1">' + saved.tier + (saved.ink ? ' · Ink' : '') + '</div><div class="t2">' + n + ' of 10 stars · ' + fmtTime(saved.elapsed) + '</div></div><span class="go">' + I.play + '</span></button></div>';
+    var n = savedProgress(saved), sn = boardSize(saved.regions);
+    html += '<div class="card"><button class="play-card" id="c-continue"><div class="thumb">' + thumbFor(saved, true) + '</div><div class="info"><div class="eyebrow">Continue</div><div class="t1">' + (sn !== 10 ? sizeLabel(sn) + ' ' : '') + saved.tier + (saved.ink ? ' · Ink' : '') + '</div><div class="t2">' + n + ' of ' + sn + ' stars · ' + fmtTime(saved.elapsed) + '</div></div><span class="go">' + I.play + '</span></button></div>';
   }
   var dtier = dailyTier(), done = st.dailyDone && st.dailyDone[dayKey()], dg = daily && daily.daily === dayKey() ? daily : null;
   var dboard = dg || dailyBoard();
@@ -2916,17 +2963,20 @@ function renderPlay() {
     '<button class="play-card" id="c-daily"><div class="thumb">' + thumbFor(dboard, !!dg) + '</div><div class="info"><div class="t2">' +
     (done ? 'Solved in <b class="num">' + fmtTime(done) + '</b>. Next puzzle tomorrow.' : dg && dg.moved ? 'In progress · ' + savedProgress(dg) + ' of 10 stars' : 'One new puzzle each day.' + (sk.current && !sk.today ? ' Solve any puzzle today to keep your streak.' : '')) +
     '</div></div><span class="go' + (done ? ' done' : '') + '">' + (done ? I.check : I.play) + '</span></button></div>';
-  html += '<div class="card"><div class="card-h"><h2>New puzzle</h2></div><div class="tiers" role="tablist">' +
-    TIERS.map(function (t) { return '<button data-t="' + t + '" class="' + (t === tier ? 'sel' : '') + '">' + t + '</button>'; }).join('') + '</div>' +
-    '<div class="tier-note"><span class="pips">' + [0, 1, 2, 3].map(function (k) { return '<i class="' + (k <= TIERS.indexOf(tier) ? 'on' : '') + '"></i>'; }).join('') + '</span><span>' + TIER_NOTE[tier] + '</span></div>' +
+  html += '<div class="card"><div class="card-h"><h2>New puzzle</h2><div class="mini-seg" id="size-seg" role="tablist" aria-label="Board size">' +
+    SIZES.map(function (n) { return '<button data-n="' + n + '" class="' + (n === size ? 'sel' : '') + '">' + sizeLabel(n) + '</button>'; }).join('') + '</div></div>' +
+    '<div class="tiers" role="tablist" style="grid-template-columns:repeat(' + tl.length + ',1fr)">' +
+    tl.map(function (t) { return '<button data-t="' + t + '" class="' + (t === tier ? 'sel' : '') + '">' + t + '</button>'; }).join('') + '</div>' +
+    '<div class="tier-note"><span class="pips">' + tl.map(function (t, k) { return '<i class="' + (k <= tl.indexOf(tier) ? 'on' : '') + '"></i>'; }).join('') + '</span><span>' + TIER_NOTE[tier] + '</span></div>' +
     '<div class="mode-row"><span class="ic">' + I.nib + '</span><span class="txt"><b>Ink mode</b><span>Stars and dots are permanent.</span></span><button class="switch' + (S.ink ? ' on' : '') + '" id="ink-switch" role="switch" aria-checked="' + S.ink + '" aria-label="Ink mode"></button></div>' +
-    '<button class="btn btn-primary mt" id="start-btn">' + I.play + 'Start ' + tier + (S.ink ? ' in Ink' : '') + '</button></div>';
+    '<button class="btn btn-primary mt" id="start-btn">' + I.play + 'Start ' + (size !== 10 ? sizeLabel(size) + ' ' : '') + tier + (S.ink ? ' in Ink' : '') + '</button></div>';
   if (!seen.lesson) html += '<div class="card"><div class="lesson-card"><div class="thumb">' + lessonThumb() + '</div><div><h3>New to the game?</h3><p>Learn the rules with a short guided puzzle.</p></div></div><button class="btn btn-soft mt" id="c-lesson">' + I.book + 'Start lesson</button></div>';
   v.innerHTML = html;
   $('#streak-chip').onclick = function () { $('#tabbar [data-tab=stats]').click(); };
   if ($('#c-continue')) $('#c-continue').onclick = continueGame;
   $('#c-daily').onclick = openDaily;
   $$('.tiers button', v).forEach(function (b) { b.onclick = function () { store.set(K.tier, b.dataset.t); renderPlay(); genKick(); }; });
+  $$('#size-seg button', v).forEach(function (b) { b.onclick = function () { store.set(K.size, +b.dataset.n); renderPlay(); genKick(); }; });
   $('#ink-switch').onclick = function () { S.ink = !S.ink; saveSettings(); renderPlay(); if (S.ink && !seen.inkIntro) showInkIntro(); };
   $('#start-btn').onclick = function () {
     var g = savedGame(K.game);
@@ -2966,7 +3016,7 @@ function showSolvedSheet(r) {
   openSheet('<div class="center">' + solvedArt() + '<h2>Solved</h2><p class="lead" style="margin-bottom:4px">' + game.tier + ' · ' + fmtTime(game.elapsed) + (game.ink ? ' · in Ink' : '') + '</p><div class="badges">' + badges + '</div></div>' +
     '<div class="facts"><div class="fact"><b>' + fmtTime(game.elapsed) + '</b><span>' + (r.newBest ? '<span class="new-best">New best</span>' : 'Time') + '</span></div><div class="fact"><b>' + fmtTime(r.best) + '</b><span>Best ' + (game.daily ? 'daily' : game.tier) + '</span></div><div class="fact"><b>' + r.streak + '</b><span>Day streak</span></div></div>' +
     unlock + '<button class="btn btn-primary" id="s-next">' + I.play + 'Next puzzle</button><button class="btn btn-soft" id="s-home">Home</button>', function (b) {
-      $('#s-next', b).onclick = function () { closeSheet(); startNew(game.daily ? null : game.tier); };
+      $('#s-next', b).onclick = function () { closeSheet(); startNew(game.daily ? null : game.tier, game.daily ? null : N); };
       $('#s-home', b).onclick = function () { closeSheet(); goBack(); };
     });
 }
@@ -2976,7 +3026,7 @@ function showInkFailSheet() {
   openSheet('<h2 class="center">' + (dot ? 'Incorrect dot' : 'Incorrect star') + '</h2><p class="lead center">' + (dot ? 'A dot is covering a star, so this puzzle can\'t be finished. Ink marks cannot be undone.' : 'Ink marks cannot be undone, so this puzzle has ended.') + '</p>' +
     '<button class="btn btn-primary" id="f-retry">' + I.restore + 'Retry puzzle</button><button class="btn btn-soft" id="f-new">New puzzle</button><button class="btn btn-text" id="f-show">Show solution</button>', function (b) {
       $('#f-retry', b).onclick = retryBoard;
-      $('#f-new', b).onclick = function () { closeSheet(); startNew(game.daily ? null : game.tier); };
+      $('#f-new', b).onclick = function () { closeSheet(); startNew(game.daily ? null : game.tier, game.daily ? null : N); };
       $('#f-show', b).onclick = function () {
         closeSheet();
         view.spotlight(null, { stars: solutionCells().filter(function (i) { return marks[i] !== STAR; }) });
@@ -2991,8 +3041,8 @@ function showMoreMenu() {
     '<p class="note">Puzzle ' + esc(game.id) + ' · ' + game.tier + (game.ink ? ' · Ink' : '') + '</p>', function (b) {
       $('#mm-new', b).onclick = function () {
         closeSheet();
-        if (!game.solved && !game.failed && game.moved && !game.daily) confirmSheet('Start a new puzzle?', 'Progress on this puzzle will be lost.', 'Start new', function () { startNew(game.tier); });
-        else startNew(game.daily ? null : game.tier);
+        if (!game.solved && !game.failed && game.moved && !game.daily) confirmSheet('Start a new puzzle?', 'Progress on this puzzle will be lost.', 'Start new', function () { startNew(game.tier, N); });
+        else startNew(game.daily ? null : game.tier, game.daily ? null : N);
       };
       $('#mm-look', b).onclick = function () { quickSettings(); };
       $('#mm-learn', b).onclick = function () { closeSheet(); openLesson(); };
@@ -3076,7 +3126,7 @@ function ruleArt(kind) {
 }
 
 /* ---------------------------------------------------------------- Stats tab */
-var statsMonth = 0, statsTier = null;
+var statsMonth = 0, statsTier = null, statsSize = 0;
 function medal(m, on) {
   var glyph = {
     spark: '<path d="' + SPARK24 + '" transform="translate(8 8) scale(1)" fill="currentColor"/>',
@@ -3102,8 +3152,10 @@ function relDay(ts) {
 }
 function renderStats() {
   var v = $('#v-stats'), st = loadStats(), sk = streakInfo(st), hist = st.history || [];
-  var total = totalSolved(st), flaw = ['Easy', 'Medium', 'Hard', 'Expert', 'Daily'].reduce(function (a, t) { return a + ((st[t] && st[t].flawless) || 0); }, 0);
-  if (!statsTier) { statsTier = store.get(K.tier, 'Medium'); }
+  var total = totalSolved(st), flaw = STAT_KEYS.reduce(function (a, t) { return a + ((st[t] && st[t].flawless) || 0); }, 0);
+  if (!statsSize) statsSize = chosenSize();
+  if (!statsTier) statsTier = store.get(K.tier, 'Medium');
+  var stl = tiersFor(statsSize), stTier = stl.indexOf(statsTier) >= 0 ? statsTier : stl[stl.length - 1];
   var html = '<h1 class="page-title">Statistics</h1><div class="tiles">' +
     tileH(I.spark, 'Solved', total, total ? 'All difficulties' : 'None yet') +
     tileH(I.sun, 'Day streak', sk.current, 'Best ' + sk.best + (sk.best === 1 ? ' day' : ' days')) +
@@ -3127,15 +3179,15 @@ function renderStats() {
   html += '<div class="card"><div class="card-h cal-head"><h2>' + MONTHS[m.getMonth()] + ' ' + m.getFullYear() + '</h2><button class="cal-nav" id="cal-prev" aria-label="Previous month">' + I.chevL + '</button><button class="cal-nav" id="cal-next" aria-label="Next month"' + (statsMonth >= 0 ? ' disabled style="opacity:.35"' : '') + '>' + I.chevR + '</button></div>' + cal +
     '<div class="legend"><span><i></i>Puzzle solved</span><span><i class="t"></i>Today</span><span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:12px;color:var(--gold);display:inline-block">' + I.spark + '</span>Daily puzzle</span></div></div>';
   // solve times
-  var tierHist = hist.filter(function (h) { return h.t === statsTier; }).slice(-14), b = st[statsTier] || {};
+  var tierHist = hist.filter(function (h) { return h.t === stTier && (h.n || 10) === statsSize; }).slice(-14), b = st[qKey(stTier, statsSize)] || {};
   var bars = '';
   if (tierHist.length) {
     var mx = Math.max.apply(null, tierHist.map(function (h) { return h.ms; })), mn = Math.min.apply(null, tierHist.map(function (h) { return h.ms; }));
     bars = '<div class="bars">' + tierHist.map(function (h) { return '<span class="b' + (h.ms === mn ? ' best' : '') + (h.i ? ' ink' : '') + '" style="height:' + Math.max(8, Math.round(h.ms / mx * 100)) + '%" title="' + fmtTime(h.ms) + '"></span>'; }).join('') + '</div>' +
       '<p class="bars-cap">Newest on the right' + (tierHist.length > 1 ? '. Best time in gold' : '') + '.</p>';
-  } else bars = '<p class="empty">No ' + statsTier + ' solves yet.</p>';
-  html += '<div class="card"><div class="card-h"><h2>Solve times</h2><span class="aside">last ' + Math.max(tierHist.length, 1) + '</span></div><div class="tiers" id="st-tiers">' +
-    TIERS.map(function (t) { return '<button data-t="' + t + '" class="' + (t === statsTier ? 'sel' : '') + '">' + t + '</button>'; }).join('') + '</div>' + bars +
+  } else bars = '<p class="empty">No ' + (statsSize !== 10 ? sizeLabel(statsSize) + ' ' : '') + stTier + ' solves yet.</p>';
+  html += '<div class="card"><div class="card-h"><h2>Solve times</h2><div class="mini-seg" id="st-size">' + SIZES.map(function (n) { return '<button data-n="' + n + '" class="' + (n === statsSize ? 'sel' : '') + '">' + sizeLabel(n) + '</button>'; }).join('') + '</div></div><div class="tiers" id="st-tiers" style="grid-template-columns:repeat(' + stl.length + ',1fr)">' +
+    stl.map(function (t) { return '<button data-t="' + t + '" class="' + (t === stTier ? 'sel' : '') + '">' + t + '</button>'; }).join('') + '</div>' + bars +
     '<div class="kv"><div><b>' + (b.best ? fmtTime(b.best) : '–') + '</b><span>Best</span></div><div><b>' + (b.solved ? fmtTime(b.total / b.solved) : '–') + '</b><span>Average</span></div><div><b>' + (b.solved || 0) + '</b><span>Solved</span></div></div></div>';
   // ink
   var inkS = st.inkSolved || 0, inkF = st.inkFailed || 0, att = inkS + inkF;
@@ -3148,12 +3200,13 @@ function renderStats() {
   var rec = hist.slice(-6).reverse();
   html += '<div class="card recent"><div class="card-h"><h2>Recent</h2></div>' + (rec.length ? '<div class="list" style="box-shadow:none;background:var(--surface-2)">' + rec.map(function (h) {
     var tags = (h.y ? '<span class="tag tag-daily">Daily</span> ' : '') + (h.i ? '<span class="tag tag-ink">Ink</span> ' : '') + (h.f ? '<span class="tag" style="background:var(--sage-soft);color:var(--sage)">Clear sky</span>' : '');
-    return '<div class="li"><span class="lbl"><b style="font-weight:600">' + h.t + '</b> ' + tags + '<span class="sub">' + relDay(h.d) + '</span></span><span class="val num">' + fmtTime(h.ms) + '</span></div>';
+    return '<div class="li"><span class="lbl"><b style="font-weight:600">' + (h.n ? sizeLabel(h.n) + ' ' : '') + h.t + '</b> ' + tags + '<span class="sub">' + relDay(h.d) + '</span></span><span class="val num">' + fmtTime(h.ms) + '</span></div>';
   }).join('') + '</div>' : '<p class="empty">No solves yet.</p>') + '</div>';
   v.innerHTML = html;
   $('#cal-prev').onclick = function () { statsMonth--; renderStats(); };
   $('#cal-next').onclick = function () { if (statsMonth < 0) { statsMonth++; renderStats(); } };
   $$('#st-tiers button').forEach(function (bt) { bt.onclick = function () { statsTier = bt.dataset.t; renderStats(); }; });
+  $$('#st-size button').forEach(function (bt) { bt.onclick = function () { statsSize = +bt.dataset.n; renderStats(); }; });
 }
 function tileH(icon, k, val, sub) { return '<div class="tile"><div class="k">' + icon + esc(k) + '</div><div class="v">' + esc(String(val)) + '</div><div class="s">' + esc(sub) + '</div></div>'; }
 
@@ -3355,7 +3408,7 @@ function renderLessonStep() {
   card.style.animation = 'none'; void card.offsetWidth; card.style.animation = '';
   if ($('#l-next')) $('#l-next').onclick = lessonNext;
   if ($('#l-yes')) { $('#l-yes').onclick = function () { lessonAnswer(true); }; $('#l-no').onclick = function () { lessonAnswer(false); }; }
-  if ($('#l-play')) $('#l-play').onclick = function () { closeLessonTo(function () { startNew('Easy'); }); };
+  if ($('#l-play')) $('#l-play').onclick = function () { closeLessonTo(function () { startNew('Easy', 10); }); };
   if ($('#l-learn')) $('#l-learn').onclick = function () { goBack(); };
   sizeLesson();
 }

@@ -1452,7 +1452,7 @@ var K = {
 };
 
 var DEFAULTS = {
-  palette: 'meadow', piece: 'star', mark: 'dot', theme: 'system',
+  palette: 'meadow', piece: 'star', mark: 'dot', grid: 'on', theme: 'system',
   autoDots: true, autoLines: false, autoCheck: true, showTimer: true,
   sound: false, haptics: true, ink: false
 };
@@ -1847,18 +1847,18 @@ function sharedDefs() {
 var GAP = 9, R_OUT = 20, R_IN = 7;
 function miniBoard(n, reg, colors, opts) {
   opts = opts || {};
-  var paper = opts.paper, d = paper ? 0 : GAP / 2, pad = d + 2, size = n * U, k;
+  var paper = opts.paper, d = paper ? 0 : GAP / 2, pad = d + 2, size = n * U, k, grid = opts.grid !== false && S.grid !== 'off';
   var s = '<svg viewBox="' + (-pad) + ' ' + (-pad) + ' ' + (size + 2 * pad) + ' ' + (size + 2 * pad) + '" preserveAspectRatio="xMidYMid meet" aria-hidden="true">';
   s += '<rect x="' + (-pad) + '" y="' + (-pad) + '" width="' + (size + 2 * pad) + '" height="' + (size + 2 * pad) + '" rx="' + (R_OUT + pad) + '" fill="' + (opts.well || 'var(--well)') + '"/>';
   if (paper) {
     s += '<rect x="0" y="0" width="' + size + '" height="' + size + '" rx="' + R_OUT + '" fill="' + colors[0] + '"/>';
-    s += '<path d="' + paperGrid(n) + '" stroke="var(--grid)" stroke-width="2.4" fill="none"/>';
+    if (grid) s += '<path d="' + paperGrid(n) + '" stroke="var(--grid)" stroke-width="2.4" fill="none"/>';
     s += '<path d="' + borderPath(n, reg) + '" stroke="var(--paper-line)" stroke-width="6" stroke-linecap="round" fill="none"/>';
     s += '<rect x="0" y="0" width="' + size + '" height="' + size + '" rx="' + R_OUT + '" fill="none" stroke="var(--paper-line)" stroke-width="7"/>';
   } else {
     var loops = regionLoops(n, reg);
     for (k = 0; k < n; k++) s += '<path d="' + regionPath(loops[k], d, R_OUT, R_IN) + '" fill="' + colors[k] + '"/>';
-    if (opts.grid !== false) s += '<path d="' + innerGrid(n, reg, d) + '" stroke="var(--grid)" stroke-width="' + (opts.gridW || 2.4) + '" fill="none"/>';
+    if (grid) s += '<path d="' + innerGrid(n, reg, d) + '" stroke="var(--grid)" stroke-width="' + (opts.gridW || 2.4) + '" fill="none"/>';
   }
   (opts.dots || []).forEach(function (i) { s += '<circle cx="' + ((i % n) * U + 50) + '" cy="' + (((i / n) | 0) * U + 50) + '" r="11" fill="' + (opts.dotColor || (paper ? 'var(--mark)' : markColorOn(colors[reg[i]]))) + '"/>'; });
   (opts.stars || []).forEach(function (i) { s += '<g transform="translate(' + ((i % n) * U + 50) + ' ' + (((i / n) | 0) * U + 50) + ')">' + pieceSVG(opts.piece || S.piece, 1.05) + '</g>'; });
@@ -1899,7 +1899,7 @@ BoardView.prototype.build = function (reg, colorIdx, pal) {
   for (k = 0; k < n; k++) this.colors.push(paletteColor(colorIdx[k], pal));
   if (paper) {
     el('rect', { x: 0, y: 0, width: size, height: size, rx: R_OUT, fill: this.colors[0] }, this.gWell);
-    el('path', { d: paperGrid(n), stroke: 'var(--grid)', 'stroke-width': 2.2, fill: 'none' }, this.gGrid);
+    if (S.grid !== 'off') el('path', { d: paperGrid(n), stroke: 'var(--grid)', 'stroke-width': 2.2, fill: 'none' }, this.gGrid);
     el('path', { d: borderPath(n, reg), stroke: 'var(--paper-line)', 'stroke-width': 5.5, 'stroke-linecap': 'round', fill: 'none' }, this.gGrid);
     el('rect', { x: 0, y: 0, width: size, height: size, rx: R_OUT, fill: 'none', stroke: 'var(--paper-line)', 'stroke-width': 6.5 }, this.gGrid);
   } else {
@@ -1911,7 +1911,7 @@ BoardView.prototype.build = function (reg, colorIdx, pal) {
       this.regionD.push(dd);
       el('path', { d: dd, fill: this.colors[k] }, this.gReg);
     }
-    el('path', { d: innerGrid(n, reg, d), stroke: 'var(--grid)', 'stroke-width': 2.2, fill: 'none', 'stroke-linecap': 'round' }, this.gGrid);
+    if (S.grid !== 'off') el('path', { d: innerGrid(n, reg, d), stroke: 'var(--grid)', 'stroke-width': 2.2, fill: 'none', 'stroke-linecap': 'round' }, this.gGrid);
   }
   this.vis = new Uint8Array(n * n); this.nodes = new Array(n * n);
 };
@@ -3170,7 +3170,7 @@ function lookControls(compact) {
       '<div class="qrow"><div class="pc-row">' +
       PIECES.map(function (p) { return '<button class="pc-btn' + (S.piece === p ? ' sel' : '') + '" data-piece="' + p + '" aria-label="' + PIECE_NAMES[p] + '" aria-pressed="' + (S.piece === p) + '">' + piecePreviewSVG(p, 28) + '</button>'; }).join('') + '</div>' +
       '<div class="mini-seg" data-k="mark">' + [['dot', 'Dot'], ['x', 'Cross']].map(function (o) { return '<button data-v="' + o[0] + '" class="' + (S.mark === o[0] ? 'sel' : '') + '">' + o[1] + '</button>'; }).join('') + '</div></div>' +
-      '<div class="list mt">' + switchRow('autoDots', 'Auto-dots around stars') + '</div>';
+      '<div class="list mt">' + segRow('grid', 'Grid lines', [['on', 'On'], ['off', 'Off']]) + switchRow('autoDots', 'Auto-dots around stars') + '</div>';
   }
   var html = '<div class="group-label">Board colours</div><div class="pick-grid">' +
     Object.keys(PALETTES).map(function (p) { return '<button class="pick' + (S.palette === p ? ' sel' : '') + '" data-pal="' + p + '" aria-pressed="' + (S.palette === p) + '"><div class="pv">' + palettePreview(p) + '</div><span class="nm">' + PALETTES[p].name + '</span></button>'; }).join('') + '</div>' +
@@ -3178,6 +3178,7 @@ function lookControls(compact) {
     PIECES.map(function (p) { return '<button class="pick' + (S.piece === p ? ' sel' : '') + '" data-piece="' + p + '" aria-pressed="' + (S.piece === p) + '"><div class="pv pc">' + piecePreviewSVG(p, 38) + '</div><span class="nm">' + PIECE_NAMES[p] + '</span></button>'; }).join('') + '</div>';
   html += '<div class="group-label">Display</div><div class="list">' +
     segRow('mark', 'Marks', [['dot', 'Dot'], ['x', 'Cross']]) +
+    segRow('grid', 'Grid lines', [['on', 'On'], ['off', 'Off']]) +
     segRow('theme', 'Theme', [['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]) + '</div>' +
     '<div class="group-label">Assists</div><div class="list">' +
     switchRow('autoDots', 'Auto-dots around stars', 'Marks the 8 cells around a new star.') +
@@ -3193,14 +3194,14 @@ function wireLook(root, after) {
     sw.onclick = function () { var k = sw.dataset.k; S[k] = !S[k]; saveSettings(); sw.classList.toggle('on', S[k]); sw.setAttribute('aria-checked', S[k]); settingsChanged(k); if (k === 'sound' && S.sound) sfx.ok(); if (k === 'haptics' && S.haptics) haptic('strong'); };
   });
   $$('.mini-seg[data-k]', root).forEach(function (sg) {
-    $$('button', sg).forEach(function (bt) { bt.onclick = function () { S[sg.dataset.k] = bt.dataset.v; saveSettings(); $$('button', sg).forEach(function (x) { x.classList.toggle('sel', x === bt); }); settingsChanged(sg.dataset.k); if (sg.dataset.k === 'theme') after(); }; });
+    $$('button', sg).forEach(function (bt) { bt.onclick = function () { S[sg.dataset.k] = bt.dataset.v; saveSettings(); $$('button', sg).forEach(function (x) { x.classList.toggle('sel', x === bt); }); settingsChanged(sg.dataset.k); if (sg.dataset.k === 'theme' || sg.dataset.k === 'grid') after(); }; });
   });
 }
 function settingsChanged(k) {
   if (k === 'theme') applyTheme();
   if (game) {
     if (k === 'palette') game._colors = assignColors(game._reg, N, hashStr(game.id + ':' + S.palette));
-    if (screen === 'game' && view && ['palette', 'theme', 'mark', 'piece'].indexOf(k) >= 0) { buildGameBoard(); if (hint) renderHint(); if (game.solved) view.constellation(starList()); }
+    if (screen === 'game' && view && ['palette', 'theme', 'mark', 'piece', 'grid'].indexOf(k) >= 0) { buildGameBoard(); if (hint) renderHint(); if (game.solved) view.constellation(starList()); }
     if (screen === 'game' && view && k === 'autoCheck') view.setClashes(S.autoCheck ? conflicts : []);
     if (screen === 'game') updateGameChrome();
   }

@@ -21,6 +21,6 @@ Open the GitHub Pages site in any modern browser. On a phone it fills the screen
 | Star | Tap or click twice |
 | Clear | Tap or click three times |
 | Dot several cells | Drag across them (start on a dot to erase) |
-| Star in Ink mode | Press and hold, or tap a dot again right after placing it |
+| Star in Ink mode | Tap twice (tap the new dot again) |
 
 Keyboard: Ctrl+Z / ⌘Z undo, Ctrl+Y / ⇧⌘Z redo, H hint, Esc close.

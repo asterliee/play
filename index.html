@@ -424,7 +424,6 @@ svg { display: block; }
 .toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 64px); transform: translate(-50%, -10px); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 16px; font-size: 15px; font-weight: 500; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 80; max-width: calc(100% - 40px); text-align: center; box-shadow: var(--shadow-2); }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-textarea.code { width: 100%; height: 110px; border-radius: 14px; border: 1px solid var(--line-2); background: var(--surface-2); color: var(--ink); padding: 10px 12px; font: 13px/1.4 ui-monospace, Menlo, monospace; resize: none; -webkit-user-select: text; user-select: text; }
 
 /* ---------------- board motion ---------------- */
 .m { transform-box: fill-box; transform-origin: center; }
@@ -1454,7 +1453,7 @@ var K = {
 var DEFAULTS = {
   palette: 'meadow', piece: 'star', mark: 'dot', theme: 'system',
   autoDots: true, autoLines: false, autoCheck: true, showTimer: true,
-  sound: false, haptics: true, ink: false
+  sound: false, ink: false
 };
 var PIECES = ['star', 'spark', 'moon', 'sun'];
 var PIECE_NAMES = { star: 'Star', spark: 'Spark', moon: 'Moon', sun: 'Sun' };
@@ -1465,6 +1464,7 @@ var S = (function () {
   delete s.classic;
   delete s.patterns;                                            // colour-blind patterns were retired
   delete s.grid;                                                // so was the grid-lines toggle
+  delete s.haptics;                                             // and haptics
   return s;
 })();
 function saveSettings() { store.set(K.settings, S); }
@@ -1532,7 +1532,6 @@ var I = {
   drag: sv('<path d="M4 15.5c3.5-4.5 9.5-6 16-4"/><circle cx="5" cy="15" r="1.5" fill="currentColor"/><circle cx="10.5" cy="11.3" r="1.5" fill="currentColor"/><circle cx="16.5" cy="10.4" r="1.5" fill="currentColor"/>'),
   hold: sv('<circle cx="12" cy="12" r="8.4" stroke-dasharray="40 13"/><path d="' + 'M12 8.2c.3 2.1 1 3.1 3.8 3.8-2.8.7-3.5 1.7-3.8 3.8-.3-2.1-1-3.1-3.8-3.8 2.8-.7 3.5-1.7 3.8-3.8z' + '" fill="currentColor" stroke-width="1"/>'),
   lock: sv('<rect x="5.2" y="10.6" width="13.6" height="9.6" rx="2.4"/><path d="M8.2 10.6V8a3.8 3.8 0 0 1 7.6 0v2.6"/>'),
-  copy: sv('<rect x="8.4" y="8.4" width="11.6" height="11.6" rx="2.6"/><path d="M15.6 8.4V6.6A2.6 2.6 0 0 0 13 4H6.6A2.6 2.6 0 0 0 4 6.6V13a2.6 2.6 0 0 0 2.6 2.6h1.8"/>'),
   restore: sv('<path d="M4.6 12a7.4 7.4 0 1 0 2.2-5.2"/><path d="M4.4 4.4v3.8h3.8"/>'),
   trash: sv('<path d="M4.6 7h14.8"/><path d="M9.4 7V5.2c0-.7.5-1.2 1.2-1.2h2.8c.7 0 1.2.5 1.2 1.2V7"/><path d="m6.4 7 .9 12.2c.1 1 .9 1.8 1.9 1.8h5.6c1 0 1.8-.8 1.9-1.8L17.6 7"/>'),
   bolt: sv('<path d="M13.2 2.8 5.6 13.4h5.6l-1 7.8 7.6-10.6h-5.6z"/>'),
@@ -2148,28 +2147,6 @@ var sfx = {
   win: function () { [1047, 1175, 1319, 1568, 2093].forEach(function (f, k) { tone(f, k * .1, 1.1, 'sine', .04); }); }
 };
 
-/* ---------------------------------------------------------------- haptics */
-var IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-var hapEl = null;
-function haptic(kind) {
-  if (!S.haptics) return;
-  if (navigator.vibrate && !IS_IOS) {
-    try { navigator.vibrate(kind === 'strong' ? 22 : kind === 'double' ? [12, 60, 12] : kind === 'light' ? 4 : 8); } catch (e) { }
-    return;
-  }
-  if (!IS_IOS) return;
-  // iOS 18+: toggling a switch control plays the system's light haptic
-  if (!hapEl) {
-    hapEl = document.createElement('label');
-    hapEl.setAttribute('aria-hidden', 'true');
-    hapEl.style.cssText = 'position:fixed;left:-200px;top:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none';
-    var inp = document.createElement('input'); inp.type = 'checkbox'; inp.setAttribute('switch', ''); inp.tabIndex = -1;
-    hapEl.appendChild(inp); document.body.appendChild(hapEl);
-    hapEl.addEventListener('click', function (e) { e.stopPropagation(); });
-    inp.addEventListener('click', function (e) { e.stopPropagation(); });
-  }
-  try { hapEl.click(); if (kind === 'double') setTimeout(function () { hapEl.click(); }, 90); } catch (e) { }
-}
 
 /* ===== 50-game.js ===== */
 /* ---------------------------------------------------------------- puzzle supply */
@@ -2339,8 +2316,8 @@ function afterChange(fx) {
   updateGameChrome();
   saveGame();
   if (fx.bloom != null) {
-    if (clash && S.autoCheck) { sfx.clash(); haptic('double'); }
-    else { (game.ink ? sfx.ink : sfx.star)(); haptic('strong'); }
+    if (clash && S.autoCheck) { sfx.clash(); }
+    else { (game.ink ? sfx.ink : sfx.star)(); }
   }
   checkWin();
 }
@@ -2350,16 +2327,15 @@ function tapCell(i) {
     // In Ink every mark is permanent: a dot can't be erased or turned into a star
     if (m !== EMPTY) { view.shake(i); sfx.soft(); toast('Ink marks are permanent.'); return; }
     marks[i] = DOT; fx.delay = {}; fx.ripple = {}; fx.ripple[i] = 1; sfx.dot();
-    haptic('light');
     pushHist(before);
     if (isSolution(i)) { view.render(marks, fx); inkFail(i, 'dot'); return; }
     if (!seen.inkHold) { markSeen('inkHold'); toast('Press and hold a cell to place a star.', 3200); }
     afterChange(fx);
     return;
   }
-  if (m === EMPTY) { marks[i] = DOT; fx.ripple = {}; fx.ripple[i] = 1; sfx.dot(); haptic('light'); }
+  if (m === EMPTY) { marks[i] = DOT; fx.ripple = {}; fx.ripple[i] = 1; sfx.dot(); }
   else if (m === DOT || m === AUTO) { marks[i] = STAR; fx.delay = addAutoFor(i); fx.bloom = i; }
-  else { marks[i] = EMPTY; game.retracted = true; dropStaleAuto(); sfx.erase(); haptic('light'); }
+  else { marks[i] = EMPTY; game.retracted = true; dropStaleAuto(); sfx.erase(); }
   pushHist(before);
   afterChange(fx);
 }
@@ -2380,7 +2356,7 @@ function inkFail(i, kind) {
   game.failed = true; game.failCell = i; game.failKind = kind || 'star';
   saveGame();
   var st = store.get(K.stats, {}); st.inkFailed = (st.inkFailed || 0) + 1; store.set(K.stats, st);
-  setTimeout(function () { view.tint(i, 'var(--rose)'); view.shake(i); sfx.wrong(); haptic('double'); }, 420);
+  setTimeout(function () { view.tint(i, 'var(--rose)'); view.shake(i); sfx.wrong(); }, 420);
   updateGameChrome();
   setTimeout(showInkFailSheet, 1200);
 }
@@ -2485,7 +2461,6 @@ function onMove(ev) {
     if (k) {
       view.render(marks, fx);
       if (drag.mode === 'dot') sfx.dot(); else sfx.erase();
-      haptic('light');
     }
   }
   drag.last = i;
@@ -2530,7 +2505,7 @@ function checkWin() {
   game.solved = true; game.solvedAt = Date.now();
   var result = recordStats();
   saveGame(); closeHint(); updateGameChrome();
-  setTimeout(function () { sfx.win(); haptic('double'); view.constellation(st); }, 380);
+  setTimeout(function () { sfx.win(); view.constellation(st); }, 380);
   setTimeout(function () { showSolvedSheet(result); }, 1900);
 }
 function loadStats() { return store.get(K.stats, {}); }
@@ -3168,7 +3143,7 @@ function wireLook(root, after) {
   $$('[data-pal]', root).forEach(function (b) { b.onclick = function () { S.palette = b.dataset.pal; saveSettings(); settingsChanged('palette'); after(); }; });
   $$('[data-piece]', root).forEach(function (b) { b.onclick = function () { S.piece = b.dataset.piece; saveSettings(); settingsChanged('piece'); after(); }; });
   $$('.switch[data-k]', root).forEach(function (sw) {
-    sw.onclick = function () { var k = sw.dataset.k; S[k] = !S[k]; saveSettings(); sw.classList.toggle('on', S[k]); sw.setAttribute('aria-checked', S[k]); settingsChanged(k); if (k === 'sound' && S.sound) sfx.ok(); if (k === 'haptics' && S.haptics) haptic('strong'); };
+    sw.onclick = function () { var k = sw.dataset.k; S[k] = !S[k]; saveSettings(); sw.classList.toggle('on', S[k]); sw.setAttribute('aria-checked', S[k]); settingsChanged(k); if (k === 'sound' && S.sound) sfx.ok(); };
   });
   $$('.mini-seg[data-k]', root).forEach(function (sg) {
     $$('button', sg).forEach(function (bt) { bt.onclick = function () { S[sg.dataset.k] = bt.dataset.v; saveSettings(); $$('button', sg).forEach(function (x) { x.classList.toggle('sel', x === bt); }); settingsChanged(sg.dataset.k); if (sg.dataset.k === 'theme') after(); }; });
@@ -3186,16 +3161,12 @@ function settingsChanged(k) {
 function renderSettings() {
   var v = $('#v-settings');
   v.innerHTML = '<h1 class="page-title">Settings</h1>' + lookControls(false) +
-    '<div class="group-label">Sound and haptics</div><div class="list">' + switchRow('sound', 'Sounds', 'Short tones for dots and stars.') + switchRow('haptics', 'Haptics', 'Vibration on supported phones.') + '</div>' +
+    '<div class="group-label">Sound</div><div class="list">' + switchRow('sound', 'Sounds', 'Short tones for dots and stars.') + '</div>' +
     '<div class="group-label">Data</div><div class="list">' +
-    '<button class="li" id="bk-copy">' + I.copy + '<span class="lbl">Back up progress<span class="sub">Export a code with your stats, settings and games.</span></span></button>' +
-    '<button class="li" id="bk-restore">' + I.restore + '<span class="lbl">Restore from backup</span></button>' +
     '<button class="li" id="bk-reset" style="color:var(--rose)">' + I.trash.replace('<svg', '<svg style="color:var(--rose)"') + '<span class="lbl">Reset stats</span></button></div>' +
     '<p class="note center">' + APP_NAME + ' ' + APP_VERSION + ' · Progress is stored on this device only.</p>';
   wireLook(v, renderSettings);
   $$('.switch[data-k]', v).forEach(function () { });
-  $('#bk-copy').onclick = backupSheet;
-  $('#bk-restore').onclick = restoreSheet;
   $('#bk-reset').onclick = function () { confirmSheet('Reset all stats?', 'Solve counts, streaks, best times and milestones will be cleared. Settings and the current game are kept.', 'Reset stats', function () { store.del(K.stats); toast('Stats reset'); renderSettings(); }); };
 }
 // In a game: a short sheet over a light scrim, so the board above shows each change as it happens
@@ -3203,33 +3174,6 @@ function quickSettings() { openSheet('', renderQuick, { light: true }); }
 function renderQuick(b) {
   b.innerHTML = '<h2 class="sheet-h">Appearance</h2>' + lookControls(true);
   wireLook(b, function () { renderQuick(b); });
-}
-function backupCode() {
-  var data = {};
-  Object.keys(K).forEach(function (k) { if (k === 'queue' || k === 'played') return; var v = store.get(K[k], null); if (v != null) data[K[k]] = v; });
-  return btoa(unescape(encodeURIComponent(JSON.stringify({ app: 'asterlie', v: 1, data: data }))));
-}
-function backupSheet() {
-  var code = backupCode();
-  openSheet('<h2>Back up progress</h2><p class="lead">Save this code. To restore, paste it into Restore from backup on any device.</p><textarea class="code" readonly id="bk-code"></textarea><button class="btn btn-primary mt" id="bk-cp">' + I.copy + 'Copy code</button>', function (b) {
-    $('#bk-code', b).value = code;
-    $('#bk-cp', b).onclick = function () {
-      if (navigator.clipboard) navigator.clipboard.writeText(code).then(function () { toast('Backup copied'); }, function () { $('#bk-code', b).select(); toast('Select the code and copy it'); });
-      else { $('#bk-code', b).select(); toast('Select the code and copy it'); }
-    };
-  });
-}
-function restoreSheet() {
-  openSheet('<h2>Restore from backup</h2><p class="lead">Paste a backup code. This replaces the stats, settings and games on this device.</p><textarea class="code" id="rs-code" placeholder="Backup code"></textarea><button class="btn btn-primary mt" id="rs-go">Restore</button>', function (b) {
-    $('#rs-go', b).onclick = function () {
-      try {
-        var obj = JSON.parse(decodeURIComponent(escape(atob($('#rs-code', b).value.trim()))));
-        if (!obj || (obj.app !== 'asterlie' && obj.app !== 'starlit') || !obj.data) throw new Error('bad');   // older backups used the previous app id
-        Object.keys(obj.data).forEach(function (k) { if (k.indexOf('sb1:') === 0) store.set(k, obj.data[k]); });
-        toast('Restored. Reloading…'); setTimeout(function () { location.reload(); }, 900);
-      } catch (e) { toast('Invalid backup code.'); }
-    };
-  });
 }
 
 /* ===== 70-lesson.js ===== */
@@ -3330,8 +3274,7 @@ function lessonPlaceStar(s) {
   var fx = { delay: {}, ripple: {}, bloom: s }, rs = (s / 6) | 0, cs = s % 6;
   lAttacked(s).forEach(function (i) { if (!LS.marks[i]) { LS.marks[i] = AUTO; fx.delay[i] = 150 + 60 * Math.max(Math.abs(((i / 6) | 0) - rs), Math.abs(i % 6 - cs)); } });
   LS.view.render(LS.marks, fx);
-  sfx.star(); haptic('strong');
-}
+  sfx.star();}
 function renderLessonStep() {
   var st = LS.steps[LS.step], card = $('#l-card');
   $('#l-prog i').style.width = Math.round(LS.step / (LS.steps.length - 1) * 100) + '%';
@@ -3368,8 +3311,7 @@ function lessonAnswer(yes) {
   if (LS.answered) return;
   LS.answered = true;
   var right = yes === st.answer;
-  (right ? sfx.ok : sfx.soft)(); haptic(right ? 'light' : 'double');
-  $('#l-fb-slot').outerHTML = '<p class="fb ' + (right ? 'ok' : 'no') + '"><span class="vd">' + (right ? 'Correct. It cannot.' : 'Incorrect. It cannot.') + '</span>' + st.why + '</p>';
+  (right ? sfx.ok : sfx.soft)();  $('#l-fb-slot').outerHTML = '<p class="fb ' + (right ? 'ok' : 'no') + '"><span class="vd">' + (right ? 'Correct. It cannot.' : 'Incorrect. It cannot.') + '</span>' + st.why + '</p>';
   $('.l-acts', $('#l-card')).innerHTML = '<button class="btn btn-primary" id="l-next">Continue</button>';
   $('#l-next').onclick = lessonNext;
   sizeLesson();
@@ -3401,8 +3343,7 @@ function lessonTap(ev) {
   }
   LS.wrong++;
   LS.view.flash(i, 'var(--rose)');
-  sfx.soft(); haptic('double');
-  var reg = +LESSON_REG[i], msg;
+  sfx.soft();  var reg = +LESSON_REG[i], msg;
   if (LS.marks[i]) msg = 'That cell has a dot, so it cannot hold a star.';
   else if (reg !== st.region) msg = 'That cell is ' + lName(reg) + ', not ' + lName(st.region) + '.';
   else msg = 'That ' + lName(st.region) + ' cell is already ruled out.';
@@ -3449,7 +3390,7 @@ function init() {
   $('#timer-ic').innerHTML = I.clock;
   $('#rotate-ic').innerHTML = I.rotate;
   var tabs = { play: [I.tabPlay, 'Play'], learn: [I.book, 'Learn'], stats: [I.chart, 'Stats'], settings: [I.sliders, 'Settings'] };
-  $$('#tabbar button').forEach(function (b) { var t = tabs[b.dataset.tab]; b.innerHTML = t[0] + '<span>' + t[1] + '</span>'; b.onclick = function () { if (tab !== b.dataset.tab || $('#v-' + b.dataset.tab).hidden) { showTab(b.dataset.tab); haptic('light'); } }; });
+  $$('#tabbar button').forEach(function (b) { var t = tabs[b.dataset.tab]; b.innerHTML = t[0] + '<span>' + t[1] + '</span>'; b.onclick = function () { if (tab !== b.dataset.tab || $('#v-' + b.dataset.tab).hidden) { showTab(b.dataset.tab); } }; });
 
   var bd = $('#board');
   bd.addEventListener('pointerdown', onDown);
@@ -3499,27 +3440,13 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 })();
 </script>
 <script>
-// Offline support: sw.js keeps a copy of the game on the device,
-// so the Home Screen app opens without internet.
+// Offline support: sw.js keeps a copy of the game in the browser,
+// so it loads quickly and still opens without internet.
 (function () {
   if (!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
-  var installed = navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('sw.js').then(function () {
-      return navigator.serviceWorker.ready;
-    }).then(function () {
-      // First launch from the Home Screen: say once that it now works offline.
-      if (!installed) return;
-      try { if (localStorage.getItem('sb1:offline')) return; localStorage.setItem('sb1:offline', '1'); } catch (e) { return; }
-      var t = document.getElementById('toast');
-      if (!t) return;
-      t.textContent = 'Available offline';
-      t.classList.add('show');
-      setTimeout(function () { t.classList.remove('show'); }, 3200);
-    }).catch(function () { });
+    navigator.serviceWorker.register('sw.js').catch(function () { });
   });
-  // Ask the phone to keep this app's saved games and stats when storage runs low.
-  if (installed && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () { });
 })();
 </script>
 </body>

@@ -6,8 +6,6 @@
 
 Open the GitHub Pages site in any modern browser. On a phone it fills the screen; on a laptop or desktop it runs in a phone-sized frame in the centre of the window. After the first visit it also works offline.
 
-To install on a phone: Safari › Share › Add to Home Screen, or Chrome › menu › Add to Home screen.
-
 ## Modes
 
 - Easy, Medium, Hard and Expert

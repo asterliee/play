@@ -1452,7 +1452,7 @@ var K = {
 
 var DEFAULTS = {
   palette: 'meadow', piece: 'star', mark: 'dot', theme: 'system',
-  autoDots: true, autoLines: false, autoCheck: true, showTimer: true,
+  autoDots: true, autoLines: false, autoFill: false, autoCheck: true, showTimer: true,
   sound: false, ink: false
 };
 var PIECES = ['star', 'spark', 'moon', 'sun'];
@@ -2305,8 +2305,38 @@ function pushHist(before) {
   if (game.hist.length > 400) game.hist.shift();
   game.fut = [];
 }
+// Assist: when a row, column or region has one open cell left (the rest dotted), star it.
+// Each new star can leave another unit with one open cell, so it runs until nothing changes;
+// a chain that places the last star solves the puzzle. Dots decide everything: only empty
+// cells count as open. Never in Ink mode, and never onto a cell that would clash with a star.
+function inUnit(i, u) { return u < N ? ((i / N) | 0) === u : u < 2 * N ? i % N === u - N : regOf(i) === u - 2 * N; }
+function autoFill(fx) {
+  if (!S.autoFill || game.ink || fx.noFill) return;            // erasing never triggers it, or a cleared star would come straight back
+  var k = 0, filled = true;
+  while (filled && starList().length < N) {
+    filled = false;
+    var stars = starList();
+    for (var u = 0; u < 3 * N && !filled; u++) {
+      var open = -1, count = 0, has = false;
+      for (var i = 0; i < NN && !has; i++) {
+        if (!inUnit(i, u)) continue;
+        if (marks[i] === STAR) has = true;
+        else if (marks[i] === EMPTY) { count++; open = i; }
+      }
+      if (has || count !== 1 || stars.some(function (s) { return attacks(s, open); })) continue;
+      marks[open] = STAR;
+      var d = addAutoFor(open), base = 240 + 200 * k++;
+      fx.delay = fx.delay || {};
+      fx.delay[open] = base;
+      for (var c in d) fx.delay[c] = base + d[c];
+      if (fx.bloom == null) fx.bloom = open;
+      filled = true;
+    }
+  }
+}
 function afterChange(fx) {
   fx = fx || {};
+  autoFill(fx);
   var clash = computeConflicts();
   if (clash) game.hadConflict = true;
   game.moved = true;
@@ -2339,7 +2369,7 @@ function tapCell(i) {
   }
   if (m === EMPTY) { marks[i] = DOT; fx.ripple = {}; fx.ripple[i] = 1; sfx.dot(); }
   else if (m === DOT || m === AUTO) { marks[i] = STAR; fx.delay = addAutoFor(i); fx.bloom = i; }
-  else { marks[i] = EMPTY; game.retracted = true; dropStaleAuto(); sfx.erase(); }
+  else { marks[i] = EMPTY; game.retracted = true; dropStaleAuto(); sfx.erase(); fx.noFill = true; }
   pushHist(before);
   afterChange(fx);
 }
@@ -2502,7 +2532,7 @@ function finishDrag(d) {
   if (!d.changed) return;
   pushHist(d.before);
   if (game.ink) game.lastDot = -1;                              // a dragged line of dots is locked at once
-  afterChange({});
+  afterChange({ noFill: d.mode === 'erase' });
   inkCheckRoom();
 }
 
@@ -2671,7 +2701,7 @@ function hintAction() {
     pushHist(snapshot());
     wrong.forEach(function (i) { marks[i] = EMPTY; });
     dropStaleAuto();
-    afterChange({});
+    afterChange({ noFill: true });
     return;
   } else if (hint.stage === 'step') {
     var dd = hint.d;
@@ -3159,6 +3189,7 @@ function lookControls(compact) {
     '<div class="group-label">Assists</div><div class="list">' +
     switchRow('autoDots', 'Auto-dots around stars', 'Marks the 8 cells around a new star.') +
     switchRow('autoLines', 'Auto-dots in lines', 'Also marks the star\'s row, column and region.') +
+    switchRow('autoFill', 'Auto-fill last cells', 'Stars a row, column or region once your dots leave one open cell. Not in Ink mode.') +
     switchRow('autoCheck', 'Show clashes', 'Highlights stars that break a rule.') +
     switchRow('showTimer', 'Show timer') + '</div>';
   return html;

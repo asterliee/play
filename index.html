@@ -2228,7 +2228,7 @@ function newGameFrom(board, opts) {
   opts = opts || {};
   return {
     regions: board.regions, solution: board.solution, tier: board.tier, score: board.score, id: board.id,
-    daily: board.daily || null, ink: !!opts.ink, attempt: opts.attempt || 1,
+    daily: board.daily || null, ink: !!opts.ink, attempt: opts.attempt || 1, lastDot: -1,
     marks: '0'.repeat(NN), hist: [], fut: [], elapsed: 0, hints: 0, hadConflict: false, retracted: false,
     solved: false, failed: false, moved: false, started: Date.now()
   };
@@ -2324,13 +2324,17 @@ function afterChange(fx) {
 function tapCell(i) {
   var before = snapshot(), m = marks[i], fx = {};
   if (game.ink) {
-    // In Ink every mark is permanent: a dot can't be erased or turned into a star
+    // In Ink every mark is permanent and dots are never checked as they go down.
+    // The one exception: tapping the dot you just placed again turns it into a star,
+    // so the normal-mode double tap still works and a slip can be fixed straight away.
+    if (m === DOT && i === game.lastDot) { placeInk(i); return; }
     if (m !== EMPTY) { view.shake(i); sfx.soft(); toast('Ink marks are permanent.'); return; }
     marks[i] = DOT; fx.delay = {}; fx.ripple = {}; fx.ripple[i] = 1; sfx.dot();
     pushHist(before);
-    if (isSolution(i)) { view.render(marks, fx); inkFail(i, 'dot'); return; }
-    if (!seen.inkHold) { markSeen('inkHold'); toast('Press and hold a cell to place a star.', 3200); }
+    game.lastDot = i;
+    if (!seen.inkHold) { markSeen('inkHold'); toast('Tap the dot again, or press and hold, to make it a star.', 3400); }
     afterChange(fx);
+    inkCheckRoom();
     return;
   }
   if (m === EMPTY) { marks[i] = DOT; fx.ripple = {}; fx.ripple[i] = 1; sfx.dot(); }
@@ -2340,7 +2344,8 @@ function tapCell(i) {
   afterChange(fx);
 }
 function placeInk(i) {
-  if (marks[i] !== EMPTY) return;
+  if (marks[i] !== EMPTY && !(marks[i] === DOT && i === game.lastDot)) return;
+  game.lastDot = -1;
   marks[i] = STAR;
   var delays = addAutoFor(i);
   game.fut = [];
@@ -2351,6 +2356,7 @@ function placeInk(i) {
     return;
   }
   afterChange({ bloom: i, delay: delays });
+  inkCheckRoom();
 }
 function inkFail(i, kind) {
   game.failed = true; game.failCell = i; game.failKind = kind || 'star';
@@ -2359,6 +2365,23 @@ function inkFail(i, kind) {
   setTimeout(function () { view.tint(i, 'var(--rose)'); view.shake(i); sfx.wrong(); }, 420);
   updateGameChrome();
   setTimeout(showInkFailSheet, 1200);
+}
+// Ink: a wrong dot only ends the puzzle once it bites, when a row, column or region
+// is left with no star and no open cell. The dot sitting on its star cell is the culprit.
+function inkCheckRoom() {
+  if (!game.ink || game.failed || game.solved) return false;
+  var star = new Uint8Array(3 * N), open = new Uint8Array(3 * N), i, k, u;
+  function unitsOf(c) { return [(c / N) | 0, N + c % N, 2 * N + regOf(c)]; }
+  for (i = 0; i < NN; i++) {
+    u = unitsOf(i);
+    for (k = 0; k < 3; k++) { if (marks[i] === STAR) star[u[k]] = 1; if (marks[i] === EMPTY) open[u[k]] = 1; }
+  }
+  for (i = 0; i < NN; i++) {
+    if (!isSolution(i) || marks[i] === STAR) continue;
+    u = unitsOf(i);
+    for (k = 0; k < 3; k++) if (!star[u[k]] && !open[u[k]]) { game.lastDot = -1; inkFail(i, 'dot'); return true; }
+  }
+  return false;
 }
 // Clear sky needs every star to stay where it was first placed
 function noteRetract(before) {
@@ -2413,8 +2436,8 @@ function onDown(ev) {
   if (i < 0) return;
   ev.preventDefault();
   try { $('#board').setPointerCapture(ev.pointerId); } catch (e) { }
-  drag = { id: ev.pointerId, start: i, last: i, moved: false, mode: null, before: snapshot(), changed: false, held: false, failAt: -1 };
-  if (game.ink && marks[i] === EMPTY) {
+  drag = { id: ev.pointerId, start: i, last: i, moved: false, mode: null, before: snapshot(), changed: false, held: false };
+  if (game.ink && (marks[i] === EMPTY || (marks[i] === DOT && i === game.lastDot))) {
     drag.ringT = setTimeout(function () { if (drag && !drag.moved) view.holdStart(i, HOLD_MS - 110); }, 110);
     drag.holdT = setTimeout(function () {
       if (drag && !drag.moved) { drag.held = true; view.holdEnd(); placeInk(drag.start); }
@@ -2423,12 +2446,7 @@ function onDown(ev) {
 }
 function cancelHold() { if (!drag) return; clearTimeout(drag.ringT); clearTimeout(drag.holdT); view.holdEnd(); }
 function applyDrag(i, delay, fx) {
-  if (drag.failAt >= 0) return 0;                               // an Ink dot already landed on a star cell
-  if (drag.mode === 'dot' && marks[i] === EMPTY) {
-    marks[i] = DOT; fx.delay[i] = delay; fx.ripple[i] = 1; drag.changed = true;
-    if (game.ink && isSolution(i)) drag.failAt = i;
-    return 1;
-  }
+  if (drag.mode === 'dot' && marks[i] === EMPTY) { marks[i] = DOT; fx.delay[i] = delay; fx.ripple[i] = 1; drag.changed = true; return 1; }
   if (drag.mode === 'erase' && marks[i] === DOT) { marks[i] = EMPTY; drag.changed = true; return 1; }
   return 0;
 }
@@ -2483,8 +2501,9 @@ function onCancel(ev) {
 function finishDrag(d) {
   if (!d.changed) return;
   pushHist(d.before);
-  if (d.failAt >= 0) { view.render(marks, {}); inkFail(d.failAt, 'dot'); return; }
+  if (game.ink) game.lastDot = -1;                              // a dragged line of dots is locked at once
   afterChange({});
+  inkCheckRoom();
 }
 
 /* ---------------------------------------------------------------- timer */
@@ -2626,7 +2645,10 @@ function unitCells(kind, u) {
 function openHint() {
   if (!game || game.solved || game.failed) return;
   game.hints++; saveGame();
-  hint = { stage: 'count', m: mistakes() };
+  var m = mistakes();
+  // Ink dots can't be erased, so a hint that finds one on a star cell ends the puzzle
+  if (game.ink && m.all.length) { game.lastDot = -1; inkFail(m.all[0], 'dot'); return; }
+  hint = { stage: 'count', m: m };
   sfx.soft();
   renderHint();
 }
@@ -2663,7 +2685,9 @@ function hintAction() {
       pushHist(snapshot());
       var fx = { delay: {}, ripple: {} }, k = 0;
       E.maskCells(dd.elim).forEach(function (i) { if (marks[i] === EMPTY) { marks[i] = DOT; fx.delay[i] = 60 * k; fx.ripple[i] = 1; k++; } });
+      if (game.ink) game.lastDot = -1;
       afterChange(fx);
+      inkCheckRoom();
     }
     return;
   } else { closeHint(); return; }
@@ -2919,7 +2943,7 @@ function showSolvedSheet(r) {
 function showInkFailSheet() {
   if (!game || !game.failed) return;
   var dot = game.failKind === 'dot';
-  openSheet('<h2 class="center">' + (dot ? 'Incorrect dot' : 'Incorrect star') + '</h2><p class="lead center">' + (dot ? 'That cell holds a star. ' : '') + 'Ink marks cannot be undone, so this puzzle has ended.</p>' +
+  openSheet('<h2 class="center">' + (dot ? 'Incorrect dot' : 'Incorrect star') + '</h2><p class="lead center">' + (dot ? 'A dot is covering a star, so this puzzle can\'t be finished. Ink marks cannot be undone.' : 'Ink marks cannot be undone, so this puzzle has ended.') + '</p>' +
     '<button class="btn btn-primary" id="f-retry">' + I.restore + 'Retry puzzle</button><button class="btn btn-soft" id="f-new">New puzzle</button><button class="btn btn-text" id="f-show">Show solution</button>', function (b) {
       $('#f-retry', b).onclick = retryBoard;
       $('#f-new', b).onclick = function () { closeSheet(); startNew(game.daily ? null : game.tier); };
@@ -2947,7 +2971,7 @@ function showMoreMenu() {
 function showInkIntro() {
   markSeen('inkIntro');
   openSheet('<div class="center" style="margin-top:4px"><span style="display:inline-grid;place-items:center;width:58px;height:58px;border-radius:18px;background:var(--surface-2)">' + I.nib.replace('<svg', '<svg style="width:30px;height:30px"') + '</span></div>' +
-    '<h2 class="center">Ink mode</h2><p class="lead center">Tap for a dot. To place a star, <b>press and hold</b> a cell. Every dot and star is permanent, and one incorrect mark ends the puzzle.</p>' +
+    '<h2 class="center">Ink mode</h2><p class="lead center">Tap for a dot. For a star, <b>press and hold</b>, or tap a dot again right after placing it. Every mark is permanent: a wrong star ends the puzzle, and so does a dot on a star once its row, column or region runs out of room.</p>' +
     '<button class="btn btn-primary" id="ii-ok">OK</button>', function (b) { $('#ii-ok', b).onclick = closeSheet; });
 }
 
@@ -2990,7 +3014,7 @@ function renderLearn() {
     '<div class="card"><div class="card-h"><h2>Controls</h2></div><div class="rules">' +
     rule(I.tap, '<b>' + TAP + '</b> once for a dot (no star), twice for a star, three times to clear.') +
     rule(I.drag, '<b>Drag</b> across cells to add dots. Start on a dot to erase.') +
-    rule(I.hold, '<b>Ink mode:</b> ' + tap + ' for a dot; <b>press and hold</b> for a star. Both are permanent.') +
+    rule(I.hold, '<b>Ink mode:</b> ' + tap + ' for a dot; <b>press and hold</b>, or ' + tap + ' a fresh dot again, for a star. Both are permanent.') +
     rule(I.lantern, '<b>Hint</b> checks your marks for mistakes, then shows the next step.') +
     (FINE ? rule(I.undo, '<b>Keyboard:</b> ' + KEYS + '.') : '') +
     '</div></div>' +

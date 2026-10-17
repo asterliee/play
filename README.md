@@ -10,7 +10,7 @@ Open the GitHub Pages site in any modern browser. On a phone it fills the screen
 
 - Easy, Medium, Hard and Expert
 - Daily puzzle, the same for everyone each day
-- Ink mode: stars and dots are both permanent, and one incorrect mark ends the puzzle
+- Ink mode: stars and dots are both permanent. A wrong star ends the puzzle, and so does a dot on a star once its row, column or region runs out of room. Dots aren't checked as you place them
 
 ## Controls
 
@@ -20,6 +20,6 @@ Open the GitHub Pages site in any modern browser. On a phone it fills the screen
 | Star | Tap or click twice |
 | Clear | Tap or click three times |
 | Dot several cells | Drag across them (start on a dot to erase) |
-| Star in Ink mode | Press and hold |
+| Star in Ink mode | Press and hold, or tap a dot again right after placing it |
 
 Keyboard: Ctrl+Z / ⌘Z undo, Ctrl+Y / ⇧⌘Z redo, H hint, Esc close.

@@ -1517,7 +1517,6 @@ var I = {
   book: sv('<path d="M12 6.6c-1.9-1.4-4.4-2-7.6-1.7v12.8c3.2-.3 5.7.3 7.6 1.7 1.9-1.4 4.4-2 7.6-1.7V4.9c-3.2-.3-5.7.3-7.6 1.7z"/><path d="M12 6.6v12.8"/>'),
   chart: sv('<path d="M5 20v-7.5"/><path d="M10 20V6"/><path d="M15 20v-9"/><path d="M20 20V8.5"/>', { sw: 2.2 }),
   sliders: sv('<path d="M4 7.5h9"/><path d="M18.5 7.5H20"/><circle cx="15.8" cy="7.5" r="2.4"/><path d="M4 16.5h2"/><path d="M11.2 16.5H20"/><circle cx="8.6" cy="16.5" r="2.4"/>'),
-  share: sv('<path d="M12 14.5V3.6"/><path d="M8.5 7.1 12 3.6l3.5 3.5"/><path d="M8.3 10H7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-1.3"/>'),
   nib: sv('<path d="M12 21.2 6.6 10.4 12 2.8l5.4 7.6z"/><path d="M12 10.6v4.4"/><circle cx="12" cy="9.4" r="1.3"/>'),
   check: sv('<path d="m5 12.6 4.4 4.4L19 7.4"/>', { sw: 2.2 }),
   close: sv('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>', { sw: 2 }),
@@ -2936,11 +2935,9 @@ function showSolvedSheet(r) {
   var unlock = (r.unlocked || []).map(function (m) { return '<div class="unlock">' + medal(m, true) + '<div><b>New milestone: ' + esc(m.name) + '</b><span>' + esc(m.desc) + '</span></div></div>'; }).join('');
   openSheet('<div class="center">' + solvedArt() + '<h2>Solved</h2><p class="lead" style="margin-bottom:4px">' + game.tier + ' · ' + fmtTime(game.elapsed) + (game.ink ? ' · in Ink' : '') + '</p><div class="badges">' + badges + '</div></div>' +
     '<div class="facts"><div class="fact"><b>' + fmtTime(game.elapsed) + '</b><span>' + (r.newBest ? '<span class="new-best">New best</span>' : 'Time') + '</span></div><div class="fact"><b>' + fmtTime(r.best) + '</b><span>Best ' + (game.daily ? 'daily' : game.tier) + '</span></div><div class="fact"><b>' + r.streak + '</b><span>Day streak</span></div></div>' +
-    unlock + '<button class="btn btn-primary" id="s-next">' + I.play + 'Next puzzle</button><button class="btn btn-soft" id="s-home">Home</button>' +
-    '<button class="btn btn-text" id="s-share">' + I.share + 'Share puzzle</button>', function (b) {
+    unlock + '<button class="btn btn-primary" id="s-next">' + I.play + 'Next puzzle</button><button class="btn btn-soft" id="s-home">Home</button>', function (b) {
       $('#s-next', b).onclick = function () { closeSheet(); startNew(game.daily ? null : game.tier); };
       $('#s-home', b).onclick = function () { closeSheet(); goBack(); };
-      $('#s-share', b).onclick = shareBoard;
     });
 }
 function showInkFailSheet() {
@@ -2959,7 +2956,6 @@ function showInkFailSheet() {
 }
 function showMoreMenu() {
   openSheet('<button class="menu-item" id="mm-new">' + I.spark + 'New puzzle</button>' +
-    '<button class="menu-item" id="mm-share">' + I.share + 'Share puzzle</button>' +
     '<button class="menu-item" id="mm-look">' + I.sliders + 'Appearance</button>' +
     '<button class="menu-item" id="mm-learn">' + I.book + 'How to play</button>' +
     '<p class="note">Puzzle ' + esc(game.id) + ' · ' + game.tier + (game.ink ? ' · Ink' : '') + '</p>', function (b) {
@@ -2968,28 +2964,9 @@ function showMoreMenu() {
         if (!game.solved && !game.failed && game.moved && !game.daily) confirmSheet('Start a new puzzle?', 'Progress on this puzzle will be lost.', 'Start new', function () { startNew(game.tier); });
         else startNew(game.daily ? null : game.tier);
       };
-      $('#mm-share', b).onclick = function () { closeSheet(); shareBoard(); };
       $('#mm-look', b).onclick = function () { quickSettings(); };
       $('#mm-learn', b).onclick = function () { closeSheet(); openLesson(); };
     });
-}
-function shareBoard() {
-  if (!game) return;
-  var url = location.href.split('#')[0] + '#b=' + game.regions;
-  var text = APP_NAME + ' · ' + game.tier + ' · puzzle ' + game.id + (game.solved ? ' · solved in ' + fmtTime(game.elapsed) : '');
-  if (navigator.share) navigator.share({ title: APP_NAME, text: text, url: url }).catch(function () { });
-  else if (navigator.clipboard) navigator.clipboard.writeText(text + '\n' + url).then(function () { toast('Link copied'); }, function () { toast('Could not copy the link'); });
-}
-function boardFromHash() {
-  var m = /#b=([0-9a-z]{100})/.exec(location.hash);
-  if (!m) return null;
-  try {
-    var reg = E.canonical(E.decode(m[1])), cs = E.countSolutions(N, reg, 2);
-    if (cs.count !== 1) return null;
-    var Lh = new E.Layout(N).set(reg), res = E.solveLogic(Lh, E.PURE, false, E.GEN_COST);
-    if (!res.solved) return null;
-    return { regions: E.encode(reg), solution: cs.solution.join(''), tier: E.gradeOf(res, E.minBigCounts(Lh, 3)), score: res.score, id: E.boardId(reg) };
-  } catch (e) { return null; }
 }
 function showInkIntro() {
   markSeen('inkIntro');
@@ -3514,11 +3491,8 @@ function init() {
   showTab('play');
   startWorker();
   genKick(1500);
-  var link = boardFromHash();
-  if (link) {
-    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { }
-    startBoard(link, { ink: false });
-  } else if (!seen.welcome) showWelcome();
+  if (/^#b=/.test(location.hash)) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { } }   // old share links just open the app
+  if (!seen.welcome) showWelcome();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 

@@ -2265,6 +2265,7 @@ function solutionCells() { var a = []; for (var r = 0; r < N; r++) a.push(r * N 
 function snapshot() { return Array.prototype.join.call(marks, ''); }
 function restore(s) { for (var i = 0; i < NN; i++) marks[i] = +s[i]; }
 function loadGame(g) {
+  stopFill();
   setSize(boardSize(g.regions));
   game = g;
   if (game.hist.length && typeof game.hist[0] !== 'string') { game.hist = []; game.fut = []; }
@@ -2323,37 +2324,57 @@ function pushHist(before) {
   game.fut = [];
 }
 // Assist: when a row, column or region has one open cell left (the rest dotted), star it.
-// Each new star can leave another unit with one open cell, so it runs until nothing changes;
-// a chain that places the last star solves the puzzle. Dots decide everything: only empty
-// cells count as open. Never in Ink mode, and never onto a cell that would clash with a star.
+// It plays out one star at a time, the way a player would do it: light up the row, column
+// or colour, ring its last open cell, then place the star (its dots follow quickly). Each new
+// star can leave another unit with one open cell, so it carries on until nothing is left; a
+// chain that places the last star solves the puzzle. Dots decide everything: only empty cells
+// count as open. Never in Ink mode, never onto a cell that would clash with a star, never after
+// an erase (or a cleared star would come straight back), and any move by the player stops it.
+var FILL_LOOK = 450, FILL_RING = 350, FILL_GAP = 450;          // ms: show the unit, show the cell, pause between stars
+var fill = null;
 function inUnit(i, u) { return u < N ? ((i / N) | 0) === u : u < 2 * N ? i % N === u - N : regOf(i) === u - 2 * N; }
-function autoFill(fx) {
-  if (!S.autoFill || game.ink || fx.noFill) return;            // erasing never triggers it, or a cleared star would come straight back
-  var k = 0, filled = true;
-  while (filled && starList().length < N) {
-    filled = false;
-    var stars = starList();
-    for (var u = 0; u < 3 * N && !filled; u++) {
-      var open = -1, count = 0, has = false;
-      for (var i = 0; i < NN && !has; i++) {
-        if (!inUnit(i, u)) continue;
-        if (marks[i] === STAR) has = true;
-        else if (marks[i] === EMPTY) { count++; open = i; }
-      }
-      if (has || count !== 1 || stars.some(function (s) { return attacks(s, open); })) continue;
-      marks[open] = STAR;
-      var d = addAutoFor(open), base = 240 + 200 * k++;
-      fx.delay = fx.delay || {};
-      fx.delay[open] = base;
-      for (var c in d) fx.delay[c] = base + d[c];
-      if (fx.bloom == null) fx.bloom = open;
-      filled = true;
+function unitList(u) { var a = []; for (var i = 0; i < NN; i++) if (inUnit(i, u)) a.push(i); return a; }
+function nextFill() {
+  if (!S.autoFill || !game || game.ink || game.solved || game.failed) return null;
+  var stars = starList();
+  if (stars.length >= N) return null;
+  for (var u = 0; u < 3 * N; u++) {
+    var open = -1, count = 0, has = false;
+    for (var i = 0; i < NN && !has; i++) {
+      if (!inUnit(i, u)) continue;
+      if (marks[i] === STAR) has = true;
+      else if (marks[i] === EMPTY) { count++; open = i; }
     }
+    if (has || count !== 1 || stars.some(function (s) { return attacks(s, open); })) continue;
+    return { unit: unitList(u), cell: open };
   }
+  return null;
+}
+function stopFill() {
+  if (!fill) return;
+  fill.timers.forEach(clearTimeout);
+  fill = null;
+  if (view && !hint) view.clearSpot();
+}
+function runFill(wait) {
+  stopFill();
+  var f = nextFill();
+  if (!f) return;
+  var run = fill = { timers: [] };
+  function at(ms, fn) { run.timers.push(setTimeout(function () { if (fill === run) fn(); }, ms)); }
+  at(wait, function () { view.spotlight(f.unit, null, []); });                        // the row, column or colour
+  at(wait + FILL_LOOK, function () { view.spotlight(f.unit, null, [f.cell]); });     // its one open cell
+  at(wait + FILL_LOOK + FILL_RING, function () {                                     // the star, then its dots
+    fill = null;
+    view.clearSpot();
+    if (!S.autoFill || marks[f.cell] !== EMPTY || game.solved || game.failed) return;
+    marks[f.cell] = STAR;
+    afterChange({ bloom: f.cell, delay: addAutoFor(f.cell), fromFill: true });
+  });
 }
 function afterChange(fx) {
   fx = fx || {};
-  autoFill(fx);
+  stopFill();
   var clash = computeConflicts();
   if (clash) game.hadConflict = true;
   game.moved = true;
@@ -2367,6 +2388,7 @@ function afterChange(fx) {
     else { (game.ink ? sfx.ink : sfx.star)(); }
   }
   checkWin();
+  if (!fx.noFill) runFill(fx.fromFill ? FILL_GAP : 320);        // after your move settles, or the next star in a chain
 }
 function tapCell(i) {
   var before = snapshot(), m = marks[i], fx = {};
@@ -2437,6 +2459,7 @@ function noteRetract(before) {
 }
 // Ink marks are permanent, so undo, redo and clear are off in Ink mode
 function undo() {
+  stopFill();
   if (!game.hist.length || game.solved || game.failed) return;
   if (game.ink) { toast('Ink marks are permanent.'); return; }
   var cur = snapshot();
@@ -2448,6 +2471,7 @@ function undo() {
   afterUndoRedo();
 }
 function redo() {
+  stopFill();
   if (!game.fut.length || game.solved || game.failed || game.ink) return;
   var cur = snapshot();
   game.hist.push(cur);
@@ -2463,6 +2487,7 @@ function afterUndoRedo() {
   updateGameChrome(); saveGame();
 }
 function clearBoard() {
+  stopFill();
   if (game.solved || game.failed || !canClear()) return;
   var before = snapshot();
   pushHist(before);
@@ -2481,6 +2506,7 @@ function onDown(ev) {
   if (!game || game.solved || game.failed || ev.button > 0) return;
   var i = view.cellAt(ev.clientX, ev.clientY);
   if (i < 0) return;
+  stopFill();                                                   // touching the board takes over from auto-fill
   ev.preventDefault();
   try { $('#board').setPointerCapture(ev.pointerId); } catch (e) { }
   drag = { id: ev.pointerId, start: i, last: i, moved: false, mode: null, before: snapshot(), changed: false };
@@ -2684,6 +2710,7 @@ function unitCells(kind, u) {
 }
 function openHint() {
   if (!game || game.solved || game.failed) return;
+  stopFill();
   game.hints++; saveGame();
   var m = mistakes();
   // Ink dots can't be erased, so a hint that finds one on a star cell ends the puzzle
@@ -2774,6 +2801,7 @@ function openGame() {
   if (game.failed) { view.tint(game.failCell, 'var(--rose)'); }
 }
 function closeGame() {
+  stopFill();
   if (screen !== 'game') return;
   saveGame(); closeSheet();
   if (hint) { hint = null; }

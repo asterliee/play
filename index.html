@@ -63,21 +63,21 @@
   color-scheme: light;
 }
 :root[data-theme="dark"] {
-  --bg: #14162B;
-  --bg-deep: #0F1124;
-  --surface: #1D2040;
-  --surface-2: #252950;
-  --surface-3: #2E335F;
-  --well: #0F1124;
-  --ink: #ECEDF7;
-  --ink-2: #A9ACC8;
-  --ink-3: #757A9E;
-  --line: rgba(236, 237, 247, .09);
-  --line-2: rgba(236, 237, 247, .16);
+  --bg: #17151C;
+  --bg-deep: #121016;
+  --surface: #221F28;
+  --surface-2: #2B2732;
+  --surface-3: #35303D;
+  --well: #121016;
+  --ink: #F1EFF4;
+  --ink-2: #B3B0BC;
+  --ink-3: #807D8A;
+  --line: rgba(241, 239, 244, .09);
+  --line-2: rgba(241, 239, 244, .16);
   --primary: #9CA2F6;
   --primary-press: #868DEB;
-  --primary-ink: #12142A;
-  --primary-soft: #2A2E5A;
+  --primary-ink: #15141B;
+  --primary-soft: #2C2A45;
   --sage: #8DB898;
   --sage-soft: #22332A;
   --gold: #F2C25A;
@@ -88,17 +88,17 @@
   --rose-soft: #3E2624;
   --hint-bg: #2C261A;
   --hint-line: #4A3E23;
-  --scrim: rgba(4, 5, 16, .55);
+  --scrim: rgba(5, 4, 8, .55);
   --shadow-1: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 14px rgba(0, 0, 0, .25);
   --shadow-2: 0 2px 6px rgba(0, 0, 0, .35), 0 14px 36px rgba(0, 0, 0, .4);
-  --tabbar: rgba(29, 32, 64, .9);
-  --grid: rgba(236, 237, 247, .13);
-  --mark: rgba(236, 237, 247, .72);
+  --tabbar: rgba(34, 31, 40, .9);
+  --grid: rgba(241, 239, 244, .13);
+  --mark: rgba(241, 239, 244, .72);
   --trail: #A9AEF5;
   --clash: #FF8A80;
-  --paper-cell: #1D2040;
-  --paper-line: rgba(220, 222, 245, .7);
-  --dim: rgba(15, 17, 36, .48);
+  --paper-cell: #26222C;
+  --paper-line: rgba(228, 226, 235, .7);
+  --dim: rgba(18, 16, 22, .48);
   color-scheme: dark;
 }
 
@@ -1678,12 +1678,12 @@ function applyTheme() {
   var dark = isDark();
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   var meta = document.querySelector('meta[name=theme-color]');
-  if (meta) meta.setAttribute('content', dark ? '#14162B' : '#F5F4F0');
+  if (meta) meta.setAttribute('content', dark ? '#17151C' : '#F5F4F0');
 }
 // The colours actually painted for palette index i, in the current light/dark mode
 function paletteColor(i, pal) {
   var P = PALETTES[pal || S.palette];
-  if (P.paper) return isDark() ? '#1D2040' : '#FFFCF6';
+  if (P.paper) return isDark() ? '#26222C' : '#FFFCF6';
   var c = vivid(P.colors[i]);
   return isDark() ? nightOf(c) : c;
 }

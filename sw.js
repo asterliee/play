@@ -9,7 +9,7 @@
  * error page or a Wi-Fi login portal can never replace the game.
  * If you change the icons or the manifest, bump VERSION.
  */
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = 'star-battle-' + VERSION;
 const PAGE = './';
 const PAGE_MARKER = "serviceWorker.register('sw.js')";

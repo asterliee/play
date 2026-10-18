@@ -1471,7 +1471,7 @@ var E = window.SBEngine;
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '2.4';
+var APP_VERSION = '2.5';
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 6×6 is a quick game that tops out at Hard.
 // N and NN always describe the puzzle that is loaded (see setSize).
@@ -2194,27 +2194,18 @@ BoardView.prototype.clearFx = function () { this.gFx.innerHTML = ''; if (this.co
 
 /* ===== 40-sound.js ===== */
 /* ---------------------------------------------------------------- sounds (off by default)
-   A small synth tuned to G major pentatonic, so whatever you tap makes a little tune.
-   - Dots are soft wooden notes. Their pitch rises towards the top right of the board, and a drag
-     runs up the scale as it lays its dots.
-   - Each star rings a bell one step higher than the one before, so a puzzle climbs as you solve it.
-     The solve replays the climb, one note per twinkling star, and lands on a G major chord.
-   Every sound is a few sine partials with a quick attack and a natural decay, panned a little
-   towards its column, and sent through a gentle compressor and a small room. */
-var AC = null, BUS = null;
-var PENTA = [0, 2, 4, 7, 9];
-var LOW = 55, HIGH = 67;                          // MIDI G3 (dots) and G4 (stars)
-// Pitch of a step along the pentatonic scale, counted up from a MIDI note
-function penta(step, base) { var o = Math.floor(step / 5); return 440 * Math.pow(2, (base + 12 * o + PENTA[step - 5 * o] - 69) / 12); }
-function midiHz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+   Warm and low: soft knocks and thumps, no bells and no tunes. Each sound is a low sine that
+   sinks a little in pitch as it fades, with a couple of quiet overtones so a phone speaker can
+   still carry it, through a low-pass filter, a gentle compressor and a small dark room. */
+var AC = null, BUS = null, NOISE = null;
 function audio() {
   if (!S.sound) return null;
   if (!AC) {
     try {
       AC = new (window.AudioContext || window.webkitAudioContext)();
       var comp = AC.createDynamicsCompressor(), mix = AC.createGain(), room = AC.createConvolver(), wet = AC.createGain();
-      comp.threshold.value = -18; comp.knee.value = 10; comp.ratio.value = 3.5; comp.attack.value = .003; comp.release.value = .25;
-      mix.gain.value = .9; wet.gain.value = .32;
+      comp.threshold.value = -18; comp.knee.value = 10; comp.ratio.value = 3; comp.attack.value = .004; comp.release.value = .25;
+      mix.gain.value = .9; wet.gain.value = .2;
       room.buffer = roomIR(AC);
       mix.connect(comp); comp.connect(AC.destination); room.connect(wet); wet.connect(mix);
       BUS = { mix: mix, room: room };
@@ -2223,17 +2214,21 @@ function audio() {
   if (AC.state !== 'running') { try { var p = AC.resume(); if (p && p.catch) p.catch(function () { }); } catch (e) { } }
   return AC;
 }
-// A small soft room: decaying noise, a little darker than white, different in each ear
+// A small dark room: short decaying noise with most of its top taken off, different in each ear
 function roomIR(ac) {
-  var sr = ac.sampleRate, len = Math.floor(sr * 1.6), buf = ac.createBuffer(2, len, sr);
+  var sr = ac.sampleRate, len = Math.floor(sr * 1.1), buf = ac.createBuffer(2, len, sr);
   for (var ch = 0; ch < 2; ch++) {
     var d = buf.getChannelData(ch), lp = 0;
-    for (var i = 0; i < len; i++) { lp += .3 * (Math.random() * 2 - 1 - lp); d[i] = lp * Math.pow(1 - i / len, 3); }
+    for (var i = 0; i < len; i++) { lp += .12 * (Math.random() * 2 - 1 - lp); d[i] = lp * Math.pow(1 - i / len, 3); }
   }
   return buf;
 }
-// One sound's channel: volume, optional low-pass and pan, then into the mix and a little into the
-// room. Its nodes are let go when its last partial ends.
+function noiseBuf() {
+  if (!NOISE) { NOISE = AC.createBuffer(1, Math.floor(AC.sampleRate * .5), AC.sampleRate); var d = NOISE.getChannelData(0); for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  return NOISE;
+}
+// One sound's channel: volume, low-pass and pan, then into the mix and a little into the room.
+// Its nodes are let go when its last source ends.
 function strip(o) {
   var ch = { input: AC.createGain(), nodes: [], end: 0, last: null }, node = ch.input;
   ch.input.gain.value = o.vol == null ? 1 : o.vol;
@@ -2244,13 +2239,12 @@ function strip(o) {
   if (o.room) { var s = AC.createGain(); s.gain.value = o.room; node.connect(s); s.connect(BUS.room); ch.nodes.push(s); }
   return ch;
 }
-// One partial: quick attack, exponential decay; o.to glides the pitch
+// One sine: soft attack, natural fade; o.to lets the pitch sink as it fades
 function partial(ch, t, freq, peak, decay, o) {
   o = o || {};
-  var osc = AC.createOscillator(), g = AC.createGain(), a = o.attack || .002, end = t + a + decay;
-  osc.type = o.type || 'sine';
+  var osc = AC.createOscillator(), g = AC.createGain(), a = o.attack || .005, end = t + a + decay;
   osc.frequency.setValueAtTime(freq, t);
-  if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + (o.glide || decay));
+  if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, end);
   g.gain.setValueAtTime(.0001, t);
   g.gain.exponentialRampToValueAtTime(peak, t + a);
   g.gain.exponentialRampToValueAtTime(.0001, end);
@@ -2266,83 +2260,79 @@ function play(delay, o, build) {
     if (ch.last) ch.last.onended = function () { ch.nodes.forEach(function (n) { try { n.disconnect(); } catch (e) { } }); };
   } catch (e) { }
 }
-// ---- instruments
-function wood(f, delay, o) {             // dots: warm fundamental, a marimba-like 4th partial, a tiny mallet tick
+// ---- the three kinds of sound
+// A soft knock, like a finger on a wooden table. A hair of random pitch keeps repeats from sounding mechanical.
+function knock(f, delay, o) {
   o = o || {};
-  play(delay, { vol: o.vol, pan: o.pan, lp: o.lp || 4200, room: o.room == null ? .14 : o.room }, function (ch, t) {
-    partial(ch, t, f, .24, .34);
-    partial(ch, t, f * 4, .06, .07);
-    partial(ch, t, f * 9.9, .02, .018);
+  f *= 1 + (Math.random() - .5) * .02;
+  var len = o.len || .12;
+  play(delay, { vol: o.vol, pan: o.pan, lp: o.lp || 1300, room: o.room == null ? .1 : o.room }, function (ch, t) {
+    partial(ch, t, f, .34, len, { to: f * (o.drop || .8) });
+    partial(ch, t, f * 2, .12, len * .5);
+    partial(ch, t, f * 3, .03, len * .3);
   });
 }
-function bell(f, delay, o) {             // stars: glockenspiel partials, a short low body, an optional shimmer
+// A warm thump with a soft low body under it (stars)
+function thump(f, delay, o) {
   o = o || {};
-  var len = o.len || 1.4;
-  play(delay, { vol: o.vol, pan: o.pan, lp: 9000, room: o.room == null ? .3 : o.room }, function (ch, t) {
-    partial(ch, t, f, .16, len);
-    partial(ch, t, f * 2.756, .06, len * .45);
-    partial(ch, t, f * 5.404, .03, len * .22);
-    partial(ch, t, f * 8.933, .012, len * .1);
-    if (o.body !== false) partial(ch, t, f / 2, .07, .2);
-    if (o.shimmer) { partial(ch, t + .06, f * 3, .022, .5); partial(ch, t + .12, f * 4, .016, .4); }
+  var len = o.len || .42;
+  play(delay, { vol: o.vol, pan: o.pan, lp: o.lp || 1700, room: o.room == null ? .22 : o.room }, function (ch, t) {
+    partial(ch, t, f * 1.12, .3, len, { to: f, attack: .006 });
+    partial(ch, t, f * 2, .13, len * .55, { attack: .006 });
+    partial(ch, t, f * 3, .035, len * .3, { attack: .006 });
+    partial(ch, t, f / 2, .22, .13, { to: f / 3, attack: .004 });
   });
 }
-function pad(f, delay, o) {              // the solving chord: a slow, warm swell
+// A slow warm swell of a few low notes together (hints, the solve)
+function swell(fs, delay, o) {
   o = o || {};
-  play(delay, { vol: o.vol, lp: 3000, room: .5 }, function (ch, t) {
-    partial(ch, t, f, .07, 2.6, { attack: .08 });
-    partial(ch, t, f * 2, .025, 1.8, { attack: .1 });
-    partial(ch, t, f * 3, .01, 1.2, { attack: .12 });
+  var len = o.len || 1.8;
+  play(delay, { vol: o.vol, lp: o.lp || 1200, room: o.room == null ? .35 : o.room }, function (ch, t) {
+    fs.forEach(function (f) {
+      partial(ch, t, f, .1, len, { attack: o.attack || .08 });
+      partial(ch, t, f * 2, .025, len * .6, { attack: o.attack || .08 });
+    });
   });
 }
-function pop(f, delay, o) {              // erasing: a short drop in pitch
-  o = o || {};
-  play(delay, { vol: o.vol, pan: o.pan, lp: 5000, room: .08 }, function (ch, t) {
-    partial(ch, t, f, .26, .13, { to: f * .5, glide: .11 });
-    partial(ch, t, f * 2, .05, .04);
+// A soft wipe: dark noise sweeping down (clearing the board)
+function wipe(delay, vol) {
+  play(delay, { vol: vol, room: .1 }, function (ch, t) {
+    var src = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(), end = t + .34;
+    src.buffer = noiseBuf();
+    f.type = 'lowpass'; f.Q.value = .7; f.frequency.setValueAtTime(1500, t); f.frequency.exponentialRampToValueAtTime(200, end);
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.25, t + .04); g.gain.exponentialRampToValueAtTime(.0001, end);
+    src.connect(f); f.connect(g); g.connect(ch.input);
+    src.start(t); src.stop(end + .02);
+    ch.end = end; ch.last = src;
   });
 }
-function thud(delay, vol) {              // a clash: a dull bump with a sour semitone on top (in the range a phone speaker plays)
-  play(delay, { vol: vol, lp: 1600, room: .1 }, function (ch, t) {
-    partial(ch, t, 330, .2, .2, { to: 220, glide: .15 });
-    partial(ch, t, 349, .09, .15);
-    partial(ch, t, 120, .2, .15, { to: 70, glide: .14 });
-  });
-}
-// A cell in sound: a pitch step from its place (0 at bottom left to 9 at top right), a pan from its column
-function dotStep(i, n) { n = n || N; return Math.round(((n - 1 - ((i / n) | 0)) + i % n) * 9 / (2 * (n - 1))); }
-function cellPan(i, n) { n = n || N; return ((i % n) / (n - 1) - .5) * .7; }
-function starStep(count, n) { n = n || N; return Math.round((clamp(count, 1, n) - 1) * 9 / (n - 1)); }
+function cellPan(i, n) { n = n || N; return ((i % n) / (n - 1) - .5) * .5; }
+// Pitches sit low-middle (about 200 to 400 Hz): warm, but still within what a phone speaker can play
 var sfx = {
-  // dot at cell i, after ms; a drag or a hint passes step so its dots climb the scale.
-  // Dots sit from D4 up (3 steps above G3), where a phone speaker still sounds them full.
-  dot: function (i, ms, step) { wood(penta(Math.min(step == null ? dotStep(i) : step, 11) + 3, LOW), (ms || 0) / 1000, { pan: cellPan(i), vol: step == null ? 1 : .7 }); },
-  erase: function (i, ms, step) { pop(penta(step == null ? dotStep(i) + 5 : Math.max(step, 0), LOW), (ms || 0) / 1000, { pan: cellPan(i) }); },
-  // the count-th star, at cell i of an n×n board: each star one step higher
-  star: function (i, count, n) { bell(penta(starStep(count, n), HIGH), 0, { pan: cellPan(i, n), shimmer: true }); },
-  ink: function (i, count) { var f = penta(starStep(count), HIGH - 12); bell(f, 0, { pan: cellPan(i), len: 2.4, room: .45 }); wood(f / 2, 0, { vol: .7, room: 0 }); },
-  clash: function () { thud(0); },
-  wrong: function () { thud(0, .6); [76, 72, 69].forEach(function (m, k) { bell(midiHz(m), .05 + k * .2, { vol: .55, len: 1.2, room: .45, body: false }); }); },
-  soft: function () { wood(penta(3, LOW), 0, { vol: .6, lp: 1400, room: .05 }); },
-  undo: function () { wood(penta(7, LOW), 0, { vol: .42 }); wood(penta(5, LOW), .06, { vol: .42 }); },
-  redo: function () { wood(penta(5, LOW), 0, { vol: .42 }); wood(penta(7, LOW), .06, { vol: .42 }); },
-  clear: function () { for (var k = 0; k < 4; k++) pop(penta(11 - k * 2, LOW), k * .05, { vol: .5 }); },
-  hint: function () { bell(penta(3, HIGH), 0, { vol: .4, room: .55, body: false, len: 1.6 }); bell(penta(6, HIGH), .1, { vol: .35, room: .55, body: false, len: 1.6 }); },
-  ok: function () { bell(penta(5, HIGH), 0, { vol: .55 }); bell(penta(8, HIGH), .08, { vol: .55, shimmer: true }); },
-  hello: function () { [0, 2, 3, 5].forEach(function (s, k) { bell(penta(s, HIGH), k * .09, { vol: .5, shimmer: k === 3 }); }); },
-  achieve: function () { [5, 7, 8, 10].forEach(function (s, k) { bell(penta(s, HIGH), k * .07, { vol: .42, body: false, shimmer: k === 3 }); }); },
-  // solved: replay the climb, one note per twinkling star (they twinkle 120 ms apart), then the chord
-  win: function (n) {
-    n = n || N;
-    for (var k = 1; k <= n; k++) bell(penta(starStep(k, n), HIGH), (k - 1) * .12, { vol: .5, len: 1, body: false });
-    var t = n * .12 + .05;
-    [0, 3, 5, 7].forEach(function (s) { pad(penta(s, LOW), t, { vol: .9 }); });
-    bell(penta(5, HIGH), t, { vol: .55, len: 2.2, room: .5 });
-    bell(penta(7, HIGH), t + .04, { vol: .45, len: 2, room: .5, body: false });
-    bell(penta(10, HIGH), t + .1, { vol: .35, len: 1.8, room: .5, body: false, shimmer: true });
-  }
+  dot: function (i, ms) { knock(380, (ms || 0) / 1000, { pan: cellPan(i), vol: ms ? .85 : 1.1 }); },        // dots in a drag a little softer
+  erase: function (i, ms) { knock(300, (ms || 0) / 1000, { pan: cellPan(i), vol: 1.1, len: .09, drop: .7, lp: 1100 }); },
+  star: function (i, n) { thump(294, 0, { pan: cellPan(i, n) }); },
+  ink: function (i) { thump(220, 0, { pan: cellPan(i), len: .7, room: .32 }); },
+  clash: function () {
+    play(0, { vol: 1.5, lp: 1000, room: .1 }, function (ch, t) {      // a dull bump with a slow wobble
+      partial(ch, t, 220, .24, .3, { to: 165 }); partial(ch, t, 230, .18, .3, { to: 172 });
+      partial(ch, t, 440, .1, .16); partial(ch, t, 460, .08, .16);
+    });
+  },
+  wrong: function () {
+    play(0, { lp: 1100, room: .25 }, function (ch, t) {                // a slow sinking womp
+      partial(ch, t, 330, .28, .55, { to: 165, attack: .02 }); partial(ch, t, 660, .1, .32, { to: 330, attack: .02 });
+    });
+  },
+  soft: function () { knock(300, 0, { vol: .8, len: .08, lp: 1000 }); },
+  undo: function () { knock(340, 0, { vol: .9, len: .1 }); },
+  redo: function () { knock(380, 0, { vol: .9, len: .1 }); },
+  clear: function () { wipe(0, .9); },
+  hint: function () { swell([262, 392], 0, { len: .8, vol: .75, attack: .05, room: .3 }); },
+  ok: function () { thump(294, 0, {}); },
+  hello: function () { thump(294, 0, {}); },
+  win: function () { thump(196, 0, { vol: .9, room: .3 }); swell([196, 247, 294, 392], .08, { len: 2.4, attack: .14, vol: 1.1, room: .4, lp: 1600 }); }   // a warm G major chord
 };
-
 
 /* ===== 50-game.js ===== */
 /* ---------------------------------------------------------------- puzzle supply */
@@ -2576,8 +2566,8 @@ function afterChange(fx) {
   saveGame();
   if (fx.bloom != null) {
     if (clash && S.autoCheck) sfx.clash();
-    else if (game.ink) sfx.ink(fx.bloom, starList().length);
-    else sfx.star(fx.bloom, starList().length);
+    else if (game.ink) sfx.ink(fx.bloom);
+    else sfx.star(fx.bloom);
   }
   checkWin();
   if (!fx.noFill) runFill(fx.fromFill ? FILL_GAP : FILL_START);  // after your move settles, or the next star in a chain
@@ -2702,12 +2692,11 @@ function onDown(ev) {
   stopFill();                                                   // touching the board takes over from auto-fill
   ev.preventDefault();
   try { $('#board').setPointerCapture(ev.pointerId); } catch (e) { }
-  drag = { id: ev.pointerId, start: i, last: i, moved: false, mode: null, before: snapshot(), changed: false, step: dotStep(i), run: 0 };
+  drag = { id: ev.pointerId, start: i, last: i, moved: false, mode: null, before: snapshot(), changed: false };
 }
-// A drag plays a run of notes: up the scale while laying dots, down it while erasing them
 function applyDrag(i, delay, fx) {
-  if (drag.mode === 'dot' && marks[i] === EMPTY) { marks[i] = DOT; fx.delay[i] = delay; fx.ripple[i] = 1; drag.changed = true; sfx.dot(i, delay, drag.step + drag.run++); return 1; }
-  if (drag.mode === 'erase' && marks[i] === DOT) { marks[i] = EMPTY; drag.changed = true; sfx.erase(i, delay, drag.step + 5 - drag.run++); return 1; }
+  if (drag.mode === 'dot' && marks[i] === EMPTY) { marks[i] = DOT; fx.delay[i] = delay; fx.ripple[i] = 1; drag.changed = true; sfx.dot(i, delay); return 1; }
+  if (drag.mode === 'erase' && marks[i] === DOT) { marks[i] = EMPTY; drag.changed = true; sfx.erase(i, delay); return 1; }
   return 0;
 }
 function onMove(ev) {
@@ -2779,7 +2768,7 @@ function checkWin() {
   game.solved = true; game.solvedAt = Date.now();
   var result = recordStats();
   saveGame(); closeHint(); updateGameChrome();
-  setTimeout(function () { sfx.win(N); view.constellation(st); }, 380);
+  setTimeout(function () { sfx.win(); view.constellation(st); }, 380);
   setTimeout(function () { showSolvedSheet(result); }, 1900);
 }
 function loadStats() { return store.get(K.stats, {}); }
@@ -2942,12 +2931,11 @@ function hintAction() {
       afterChange({ bloom: dd.place, delay: addAutoFor(dd.place) });
     } else {
       pushHist(snapshot());
-      var fx = { delay: {}, ripple: {} }, k = 0, base = -1;
+      var fx = { delay: {}, ripple: {} }, k = 0;
       E.maskCells(dd.elim).forEach(function (i) {
         if (marks[i] !== EMPTY) return;
         marks[i] = DOT; fx.delay[i] = 60 * k; fx.ripple[i] = 1;
-        if (base < 0) base = dotStep(i);
-        sfx.dot(i, 60 * k, base + k);                             // the hint's dots run up the scale
+        sfx.dot(i, 60 * k);
         k++;
       });
       if (game.ink) game.lastDot = -1;
@@ -3224,7 +3212,6 @@ function solvedArt() {
 }
 function showSolvedSheet(r) {
   if (!game || !game.solved) return;
-  if (r.newBest || (r.unlocked && r.unlocked.length)) sfx.achieve();        // a new best time or milestone gets its own little fanfare
   var badges = '';
   if (r.flawless) badges += '<span class="badge sage">' + I.spark + 'Clear sky</span>';
   if (game.ink) badges += '<span class="badge ink">' + I.nib + 'Inked</span>';
@@ -3487,7 +3474,7 @@ function settingsChanged(k) {
 function renderSettings() {
   var v = $('#v-settings');
   v.innerHTML = '<h1 class="page-title">Settings</h1>' + lookControls(false) +
-    '<div class="group-label">Sound</div><div class="list">' + switchRow('sound', 'Sounds', 'Wooden notes for dots, and bells for stars that climb as you solve.') + '</div>' +
+    '<div class="group-label">Sound</div><div class="list">' + switchRow('sound', 'Sounds', 'Soft, warm taps for dots and stars.') + '</div>' +
     (isInstalled() ? '' : '<div class="group-label">App</div><div class="list"><button class="li" id="home-tip">' + I.phone + '<span class="lbl">Add to Home Screen<span class="sub">Play full screen like an app, even offline.</span></span>' + I.chevR + '</button></div>') +
     '<div class="group-label">Data</div><div class="list">' +
     '<button class="li" id="bk-reset" style="color:var(--rose)">' + I.trash.replace('<svg', '<svg style="color:var(--rose)"') + '<span class="lbl">Reset stats</span></button></div>' +
@@ -3602,7 +3589,7 @@ function lessonPlaceStar(s) {
   var fx = { delay: {}, ripple: {}, bloom: s }, rs = (s / 6) | 0, cs = s % 6;
   lAttacked(s).forEach(function (i) { if (!LS.marks[i]) { LS.marks[i] = AUTO; fx.delay[i] = 150 + 60 * Math.max(Math.abs(((i / 6) | 0) - rs), Math.abs(i % 6 - cs)); } });
   LS.view.render(LS.marks, fx);
-  sfx.star(s, Array.prototype.filter.call(LS.marks, function (m) { return m === STAR; }).length, L_N);
+  sfx.star(s, L_N);
 }
 function renderLessonStep() {
   var st = LS.steps[LS.step], card = $('#l-card');
@@ -3618,7 +3605,7 @@ function renderLessonStep() {
       LS.view.spotlight(att.concat([st.attackOf]), null, []);
       setTimeout(function () { if (LS) lessonSetMarks(att.filter(function (i) { return !LS.marks[i]; })); }, 350);
     }
-    if (st.kind === 'done') { markSeen('lesson'); setTimeout(function () { if (LS) { LS.view.constellation(L_SOL); sfx.win(L_N); } }, 200); }
+    if (st.kind === 'done') { markSeen('lesson'); setTimeout(function () { if (LS) { LS.view.constellation(L_SOL); sfx.win(); } }, 200); }
   } else if (st.kind === 'yesno') {
     html = '<p class="q">' + st.title + '</p><p class="x" id="l-fb-slot">Check the nearby regions before answering.</p><div class="l-acts"><button class="btn btn-soft" id="l-yes">Yes</button><button class="btn btn-soft" id="l-no">No</button></div>';
     LS.view.spotlight(null, null, [st.ring]);

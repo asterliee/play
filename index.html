@@ -519,8 +519,8 @@ svg { display: block; }
 }
 
 /* ---------------- browsers on laptops and desktops ---------------- */
-.view, .sheet-body { scrollbar-width: none; }
-.view::-webkit-scrollbar, .sheet-body::-webkit-scrollbar { display: none; }
+.view, .sheet-body, .welcome { scrollbar-width: none; }
+.view::-webkit-scrollbar, .sheet-body::-webkit-scrollbar, .welcome::-webkit-scrollbar { display: none; }
 /* Wide windows: the app keeps phone proportions in the middle of the window. Nothing is drawn
    around it, so it blends into the page. The transform makes #app the containing block for its
    fixed children (tab bar, sheets, toasts, welcome); the scrim is stretched to cover the window. */

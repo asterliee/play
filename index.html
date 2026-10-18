@@ -423,9 +423,10 @@ svg { display: block; }
 .welcome-cap { font-size: 15px; font-weight: 600; color: var(--accent); margin: -2px 0 12px; }
 .welcome p { color: var(--ink-2); font-size: 16.5px; line-height: 1.5; margin: 0 0 26px; max-width: 330px; }
 .welcome .btn { max-width: 340px; }
-.welcome { overflow-y: auto; justify-content: flex-start; }      /* auto margins centre it, and it scrolls when taller than the screen */
-.welcome > :first-child { margin-top: auto; }
-.welcome > :last-child { margin-bottom: auto; }
+.welcome { overflow-y: auto; -webkit-overflow-scrolling: touch; justify-content: flex-start; padding-bottom: 0; }
+/* the content sits in one column: centred when it fits, scrolling (never squeezed) when it doesn't */
+.w-inner { margin: auto 0; width: 100%; display: flex; flex-direction: column; align-items: center; flex-shrink: 0; padding-bottom: calc(env(safe-area-inset-bottom) + 28px); }
+.w-inner > * { flex-shrink: 0; }
 .tip-icon { width: 64px; height: 64px; margin-bottom: 2px; flex: none; filter: drop-shadow(0 6px 14px rgba(20, 22, 48, .22)); }
 /* Home Screen guide: a dropdown for the phone, then a short list of steps, each with a small picture */
 .guide { width: 100%; max-width: 360px; margin: 0 auto; text-align: left; }
@@ -3524,9 +3525,9 @@ function welcomeArt() {
 function showWelcome() {
   var w = document.createElement('div');
   w.className = 'welcome'; w.id = 'welcome';
-  w.innerHTML = '<div style="width:190px;height:190px">' + welcomeArt() + '</div><h1>' + APP_NAME + '</h1><div class="welcome-cap">' + APP_CAPTION + '</div>' +
+  w.innerHTML = '<div class="w-inner"><div style="width:190px;height:190px">' + welcomeArt() + '</div><h1>' + APP_NAME + '</h1><div class="welcome-cap">' + APP_CAPTION + '</div>' +
     '<p>Place one star in every row, column and colour region. Stars cannot touch, including diagonally.</p>' +
-    '<button class="btn btn-primary" id="w-lesson">' + I.book + 'Learn to play</button><button class="btn btn-text" id="w-skip">Skip</button>';
+    '<button class="btn btn-primary" id="w-lesson">' + I.book + 'Learn to play</button><button class="btn btn-text" id="w-skip">Skip</button></div>';
   $('#app').appendChild(w);
   $('#w-lesson').onclick = function () { markSeen('welcome'); w.remove(); showHomeTip(openLesson); };
   $('#w-skip').onclick = function () { markSeen('welcome'); w.remove(); showHomeTip(function () { }); };
@@ -3605,8 +3606,8 @@ function showHomeTip(next) {
   if (isInstalled()) { next(); return; }
   var w = document.createElement('div');
   w.className = 'welcome'; w.id = 'welcome';
-  w.innerHTML = '<div class="tip-icon">' + brandMark(64) + '</div><h1>Best on your phone</h1><p>' + HOME_TIP + '</p>' + guideHTML() +
-    '<button class="btn btn-primary mt" id="w-next">Continue</button>';
+  w.innerHTML = '<div class="w-inner"><div class="tip-icon">' + brandMark(64) + '</div><h1>Best on your phone</h1><p>' + HOME_TIP + '</p>' + guideHTML() +
+    '<button class="btn btn-primary" id="w-next" style="margin-top:22px">Continue</button></div>';
   $('#app').appendChild(w);
   wireGuide(w);
   $('#w-next').onclick = function () { w.remove(); next(); };

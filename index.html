@@ -419,7 +419,7 @@ svg { display: block; }
 .tap-tip svg { width: 18px; height: 18px; }
 
 /* welcome */
-.welcome { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 60; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: calc(env(safe-area-inset-top) + 24px) 28px calc(env(safe-area-inset-bottom) + 28px); text-align: center; animation: viewIn .4s ease-out both; }
+.welcome { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 60; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: calc(env(safe-area-inset-top) + 24px) 28px calc(env(safe-area-inset-bottom) + 28px); text-align: center; }   /* the cover shows at once; only its content fades in (.w-swap), so the app never shows through */
 .welcome .art { width: 210px; height: 150px; }
 .welcome h1 { font-family: var(--font-display); font-weight: 700; font-size: 34px; margin: 14px 0 8px; letter-spacing: -1px; }
 .welcome-cap { font-size: 15px; font-weight: 600; color: var(--accent); margin: -2px 0 12px; }
@@ -1473,7 +1473,7 @@ var E = window.SBEngine;
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '2.9';
+var APP_VERSION = '2.9.1';
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 6×6 is a quick game that tops out at Hard.
 // N and NN always describe the puzzle that is loaded (see setSize).
@@ -3766,7 +3766,7 @@ function welcomeArt() {
 function showWelcome() {
   var w = document.createElement('div');
   w.className = 'welcome'; w.id = 'welcome';
-  w.innerHTML = '<div class="w-inner"><div style="width:190px;height:190px">' + welcomeArt() + '</div><h1>' + APP_NAME + '</h1><div class="welcome-cap">' + APP_CAPTION + '</div>' +
+  w.innerHTML = '<div class="w-inner w-swap"><div style="width:190px;height:190px">' + welcomeArt() + '</div><h1>' + APP_NAME + '</h1><div class="welcome-cap">' + APP_CAPTION + '</div>' +
     '<p>Place one star in every row, column and colour region. Stars cannot touch, including diagonally.</p>' +
     '<button class="btn btn-primary" id="w-lesson">' + I.book + 'Learn to play</button><button class="btn btn-text" id="w-skip">Skip</button></div>';
   $('#app').appendChild(w);

@@ -1473,7 +1473,7 @@ var E = window.SBEngine;
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.0.3';
+var APP_VERSION = '3.0.4';
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 6×6 is a quick game that tops out at Hard.
 // N and NN always describe the puzzle that is loaded (see setSize).
@@ -1630,17 +1630,17 @@ var PALETTES = {
   meadow: {
     name: 'Meadow', note: 'Soft pastels',
     colors: ['#FFC5C5', '#FEC9A9', '#F7E4A9', '#CDE7B0', '#ABE6C2', '#97E7E3', '#9EDCFD', '#BCCFFE', '#DEC6FC', '#F1B9DB'],
-    names: ['pink', 'peach', 'yellow', 'lime', 'green', 'aqua', 'blue', 'periwinkle', 'lilac', 'rose']
+    names: ['red', 'orange', 'yellow', 'lime', 'green', 'turquoise', 'light blue', 'blue', 'purple', 'pink']
   },
   ember: {
     name: 'Ember', note: 'Warm and deep',
     colors: ['#C8414F', '#8C2C47', '#F08A72', '#B4532E', '#7A4A35', '#DCA184', '#D8789A', '#7D3F70', '#B88BB0', '#8A8743'],
-    names: ['crimson', 'wine', 'coral', 'rust', 'cocoa', 'clay', 'rose', 'plum', 'mauve', 'olive']
+    names: ['red', 'dark red', 'coral', 'orange', 'brown', 'tan', 'pink', 'purple', 'light purple', 'olive']
   },
   tide: {
     name: 'Tide', note: 'Cool sea glass',
     colors: ['#34507F', '#3B7CBF', '#8EC3EA', '#71CFCB', '#2C8C86', '#A6DDBF', '#4E8A57', '#93A866', '#A7A3DE', '#63768D'],
-    names: ['navy', 'ocean', 'sky', 'aqua', 'teal', 'seafoam', 'kelp', 'moss', 'lavender', 'slate']
+    names: ['navy', 'blue', 'light blue', 'turquoise', 'teal', 'mint', 'green', 'olive', 'purple', 'grey']
   },
   paper: {
     name: 'Paper', note: 'Ink on paper', paper: true,
@@ -3624,7 +3624,7 @@ function renderQuick(b) {
 var lessonOpen = false, LS = null;
 var tipAfterLesson = false;           // "Learn to play" on the welcome page: the Home Screen page waits until the lesson ends
 var L_N = 6;
-var L_MAP = [1, 8, 2, 4, 9, 6];          // region -> palette colour (peach, lilac, yellow, green, rose, blue in Meadow)
+var L_MAP = [1, 8, 2, 4, 9, 6];          // region -> palette colour (orange, purple, yellow, green, pink, light blue in Meadow)
 var L_SOL = [3, 7, 17, 18, 26, 34];
 function lPal() { return S.palette === 'paper' ? 'meadow' : S.palette; }
 function lName(g) { return PALETTES[lPal()].names[L_MAP[g]]; }

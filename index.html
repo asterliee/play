@@ -1473,7 +1473,7 @@ var E = window.SBEngine;
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.0.4';
+var APP_VERSION = '3.0.5';
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 6×6 is a quick game that tops out at Hard.
 // N and NN always describe the puzzle that is loaded (see setSize).
@@ -3727,7 +3727,7 @@ function renderLessonStep() {
   var html = '';
   if (st.kind === 'info' || st.kind === 'done') {
     html = '<p class="q">' + st.title + '</p><p class="x">' + st.text + '</p><div class="l-acts">' +
-      (st.kind === 'done' ? '<button class="btn btn-soft" id="l-learn">Back</button><button class="btn btn-primary" id="l-play">' + I.play + 'Play Easy</button>' : '<button class="btn btn-primary" id="l-next">' + st.btn + '</button>') + '</div>';
+      (st.kind === 'done' ? '<button class="btn btn-soft" id="l-learn">Home</button><button class="btn btn-primary" id="l-play">' + I.play + 'Play Easy</button>' : '<button class="btn btn-primary" id="l-next">' + st.btn + '</button>') + '</div>';
     if (st.attackOf != null) {
       var att = lAttacked(st.attackOf);
       LS.view.spotlight(att.concat([st.attackOf]), null, []);
@@ -3745,7 +3745,7 @@ function renderLessonStep() {
   if ($('#l-next')) $('#l-next').onclick = lessonNext;
   if ($('#l-yes')) { $('#l-yes').onclick = function () { lessonAnswer(true); }; $('#l-no').onclick = function () { lessonAnswer(false); }; }
   if ($('#l-play')) $('#l-play').onclick = function () { closeLessonTo(function () { confirmNew(function () { startNew('Easy', 10); }); }); };
-  if ($('#l-learn')) $('#l-learn').onclick = function () { goBack(); };
+  if ($('#l-learn')) $('#l-learn').onclick = function () { closeLessonTo(function () { if (screen === 'game') goBack(); else showTab('play'); }); };   // Home: the Play tab, leaving a game if the lesson came from one
   sizeLesson();
 }
 function closeLessonTo(fn) {

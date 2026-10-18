@@ -4,14 +4,14 @@
 
 ## Play
 
-Open the GitHub Pages site in any modern browser. On a phone it fills the screen; on a laptop or desktop it runs in a phone-sized frame in the centre of the window. After the first visit it also works offline.
+Open **[asterliee.github.io/play](https://asterliee.github.io/play/)** in any modern browser. On a phone it fills the screen; on a laptop or desktop it runs in a phone-sized frame in the centre of the window. After the first visit it also works offline.
 
 ## Modes
 
 - 10×10: Easy, Medium, Hard and Expert
 - 6×6: Easy, Medium and Hard, for a quicker game
 - Daily puzzle, the same for everyone each day
-- Ink mode: stars and dots are both permanent. A wrong star ends the puzzle, and so does a dot on a star once its row, column or region runs out of room. Dots aren't checked as you place them
+- Ink mode: stars and dots are both permanent. A wrong star ends the puzzle, and so does a dot on a star once its row, column or region runs out of room. Dots aren't checked as you place them.
 
 ## Controls
 

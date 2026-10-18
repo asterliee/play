@@ -28,7 +28,7 @@
   --well: #E6E3DA;
   --ink: #1D2035;
   --ink-2: #5E6175;
-  --ink-3: #9B9DAB;
+  --ink-3: #737687;
   --line: rgba(29, 32, 53, .10);
   --line-2: rgba(29, 32, 53, .16);
   --primary: #2F3477;
@@ -163,7 +163,7 @@ svg { display: block; }
 .play-card .info { flex: 1; min-width: 0; }
 .play-card .t1 { font-family: var(--font-display); font-weight: 600; font-size: 20px; margin: 2px 0 3px; }
 .play-card .t2 { color: var(--ink-2); font-size: 14.5px; line-height: 1.35; }
-.play-card .go { width: 42px; height: 42px; border-radius: 50%; background: var(--primary); color: var(--primary-ink); display: grid; place-items: center; flex: none; box-shadow: 0 4px 12px rgba(196, 104, 63, .28); }
+.play-card .go { width: 42px; height: 42px; border-radius: 50%; background: var(--primary); color: var(--primary-ink); display: grid; place-items: center; flex: none; box-shadow: var(--primary-shadow); }
 .play-card .go svg { width: 18px; height: 18px; }
 .play-card .go.done { background: var(--sage-soft); color: var(--sage); box-shadow: none; }
 
@@ -266,7 +266,7 @@ svg { display: block; }
 .sheet {
   position: fixed; left: 50%; bottom: 0; width: 100%; max-width: 480px; z-index: 40;
   transform: translate(-50%, 105%); transition: transform .42s cubic-bezier(.2, .9, .25, 1);
-  background: var(--surface); border-radius: 30px 30px 0 0; box-shadow: 0 -10px 40px rgba(40, 25, 15, .18);
+  background: var(--surface); border-radius: 30px 30px 0 0; box-shadow: 0 -10px 40px rgba(20, 22, 48, .18);
   max-height: calc(100% - env(safe-area-inset-top) - 30px); display: flex; flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -1469,7 +1469,7 @@ var E = window.SBEngine;
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '2.1';
+var APP_VERSION = '2.2';
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 6×6 is a quick game that tops out at Hard.
 // N and NN always describe the puzzle that is loaded (see setSize).
@@ -1478,6 +1478,7 @@ var STAT_KEYS = ['Easy', 'Medium', 'Hard', 'Expert', 'Daily', '6:Easy', '6:Mediu
 function tiersFor(n) { return n === 6 ? ['Easy', 'Medium', 'Hard'] : TIERS; }
 function sizeLabel(n) { return n + '×' + n; }
 function boardSize(regions) { return Math.round(Math.sqrt(regions.length)); }
+function gameLabel(g) { var n = boardSize(g.regions); return (n !== 10 ? sizeLabel(n) + ' ' : '') + g.tier; }   // "Hard", "6×6 Hard"
 function qKey(tier, n) { return !n || n === 10 ? tier : n + ':' + tier; }      // queue and stats key
 function chosenSize() { var n = store.get(K.size, 10); return SIZES.indexOf(n) >= 0 ? n : 10; }
 function chosenTier(n) { var t = store.get(K.tier, 'Medium'), list = tiersFor(n || chosenSize()); return list.indexOf(t) >= 0 ? t : list[list.length - 1]; }
@@ -1657,8 +1658,6 @@ function hslHex(h, s, l) {
   var q = l < .5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
   return rgbHex([f(p, q, h + 1 / 3) * 255, f(p, q, h) * 255, f(p, q, h - 1 / 3) * 255]);
 }
-// night version of a pastel: same hue, deeper and calmer
-function nightOf(hex) { var c = rgbHsl(hexRgb(hex)); return hslHex(c[0], Math.min(c[1], .95) * .42 + .06, .33 + (c[2] - .8) * .25); }
 // Board colours: more saturated and slightly deeper than the base pastels, so the board stands out
 function vivid(hex) { var c = rgbHsl(hexRgb(hex)); return hslHex(c[0], Math.min(1, c[1] * 1.25 + .06), c[2] - .045); }
 function lum(hex) {
@@ -1670,6 +1669,32 @@ function labOf(hex) {
   var x = (c[0] * .4124 + c[1] * .3576 + c[2] * .1805) / .95047, y = c[0] * .2126 + c[1] * .7152 + c[2] * .0722, z = (c[0] * .0193 + c[1] * .1192 + c[2] * .9505) / 1.08883;
   var f = function (t) { return t > .008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116; };
   return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))];
+}
+// Lab back to hex; null when the colour is outside sRGB
+function labHex(L, a, b) {
+  var fy = (L + 16) / 116, fx = fy + a / 500, fz = fy - b / 200;
+  var inv = function (t) { return t * t * t > .008856 ? t * t * t : (t - 16 / 116) / 7.787; };
+  var X = .95047 * inv(fx), Y = inv(fy), Z = 1.08883 * inv(fz);
+  var lin = [3.2406 * X - 1.5372 * Y - .4986 * Z, -.9689 * X + 1.8758 * Y + .0415 * Z, .0557 * X - .204 * Y + 1.057 * Z];
+  if (lin.some(function (v) { return v < -1e-4 || v > 1.0001; })) return null;
+  return rgbHex(lin.map(function (v) { v = Math.max(v, 0); return 255 * (v <= .0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - .055); }));
+}
+// Lightness, chroma and hue to hex, giving up chroma until it fits in sRGB
+function lchHex(L, C, h) { for (var c = C; c > 0; c -= .5) { var x = labHex(L, c * Math.cos(h), c * Math.sin(h)); if (x) return x; } return labHex(L, 0, 0); }
+// Dark mode board colours. Each palette is remade in Lab: same hues, most of the colour, and the same
+// light-to-dark order, moved into a darker band. Ember and Tide get a wider band because they tell
+// neighbouring regions apart by lightness as much as by hue; Meadow's pastels lean on hue.
+var DARK_BAND = { meadow: [34, 50, .95, 6, 50], ember: [30, 60, 1, 4, 56], tide: [30, 60, 1, 4, 56] };   // [L from, L to, chroma ×, chroma +, chroma max]
+var DARK_CACHE = {};
+function darkColors(pal) {
+  if (DARK_CACHE[pal]) return DARK_CACHE[pal];
+  var o = DARK_BAND[pal] || DARK_BAND.meadow;
+  var src = PALETTES[pal].colors.map(function (h) { var l = labOf(vivid(h)); return [l[0], Math.hypot(l[1], l[2]), Math.atan2(l[2], l[1])]; });
+  var Ls = src.map(function (c) { return c[0]; }), lo = Math.min.apply(null, Ls), hi = Math.max.apply(null, Ls);
+  return (DARK_CACHE[pal] = src.map(function (c) {
+    var t = hi > lo ? (c[0] - lo) / (hi - lo) : .5;
+    return lchHex(o[0] + t * (o[1] - o[0]), Math.min(o[4], c[1] * o[2] + o[3]), c[2]);
+  }));
 }
 
 function isDark() {
@@ -1685,10 +1710,10 @@ function applyTheme() {
 }
 // The colours actually painted for palette index i, in the current light/dark mode
 function paletteColor(i, pal) {
-  var P = PALETTES[pal || S.palette];
+  pal = pal || S.palette;
+  var P = PALETTES[pal];
   if (P.paper) return isDark() ? '#26222C' : '#FFFCF6';
-  var c = vivid(P.colors[i]);
-  return isDark() ? nightOf(c) : c;
+  return isDark() ? darkColors(pal)[i] : vivid(P.colors[i]);
 }
 function markColorOn(hex) {
   if (!isDark()) return lum(hex) > .3 ? 'rgba(29,32,53,.52)' : 'rgba(250,250,255,.85)';   // light marks on deep cells
@@ -2661,7 +2686,7 @@ var MILESTONES = [
   { id: 'ink', name: 'Steady hand', desc: 'Solve a puzzle in Ink mode', glyph: 'nib' },
   { id: 'ten', name: 'Constellation', desc: 'Solve 10 puzzles', glyph: 'const' },
   { id: 'expert', name: 'Deep sky', desc: 'Solve an Expert puzzle', glyph: 'moon' },
-  { id: 'week', name: 'Seven days', desc: 'Play 7 days in a row', glyph: 'cal' },
+  { id: 'week', name: 'Seven days', desc: 'Solve a puzzle 7 days in a row', glyph: 'cal' },
   { id: 'owl', name: 'Night owl', desc: 'Solve a puzzle after 10 pm', glyph: 'owl' },
   { id: 'swift', name: 'Swift', desc: 'Solve a Hard puzzle in under 4 minutes', glyph: 'bolt' },
   { id: 'north', name: 'North star', desc: 'Clear sky on an Expert puzzle in Ink mode', glyph: 'north' }
@@ -2852,7 +2877,11 @@ function openGame() {
   updateGameChrome();
   tick();
   if (game.solved) setTimeout(function () { view.constellation(starList()); }, 300);
-  if (game.failed) { view.tint(game.failCell, 'var(--rose)'); }
+  if (game.failed) {
+    // a puzzle that ended in Ink: offer Retry again, since the sheet from when it ended is gone
+    view.tint(game.failCell, 'var(--rose)');
+    setTimeout(function () { if (screen === 'game' && game && game.failed && !$('#sheet').classList.contains('show')) showInkFailSheet(); }, 450);
+  }
 }
 function closeGame() {
   stopFill();
@@ -2968,6 +2997,18 @@ function startNew(tier, n) {
   if (n !== 10 && tier === 'Hard' && !(queue()[qKey(tier, n)] || []).length) { toast('Making a ' + sizeLabel(n) + ' puzzle…', 2000); setTimeout(go, 60); }
   else go();
 }
+// A new puzzle replaces the saved one (the daily is kept separately), so ask first if it has progress.
+// This is checked against the saved game, not the one on screen, which may be the daily.
+function confirmNew(fn) {
+  var g = savedGame(K.game);
+  if (g && !g.solved && !g.failed && g.moved) confirmSheet('Start a new puzzle?', 'Your ' + gameLabel(g) + ' puzzle in progress will be lost.', 'Start new', fn);
+  else fn();
+}
+// The next puzzle after this one: same size and tier (after a daily, your chosen size and tier)
+function nextPuzzle() {
+  var daily = !!game.daily, tier = game.tier, n = N;
+  confirmNew(function () { startNew(daily ? null : tier, daily ? null : n); });
+}
 function continueGame() {
   var g = savedGame(K.game);
   if (!g) return;
@@ -3008,12 +3049,13 @@ function renderPlay() {
     var n = savedProgress(saved), sn = boardSize(saved.regions);
     html += '<div class="card"><button class="play-card" id="c-continue"><div class="thumb">' + thumbFor(saved, true) + '</div><div class="info"><div class="eyebrow">Continue</div><div class="t1">' + (sn !== 10 ? sizeLabel(sn) + ' ' : '') + saved.tier + (saved.ink ? ' · Ink' : '') + '</div><div class="t2">' + n + ' of ' + sn + ' stars · ' + fmtTime(saved.elapsed) + '</div></div><span class="go">' + I.play + '</span></button></div>';
   }
-  var dtier = dailyTier(), done = st.dailyDone && st.dailyDone[dayKey()], dg = daily && daily.daily === dayKey() ? daily : null;
+  var dtier = dailyTier(), dg = daily && daily.daily === dayKey() ? daily : null;
+  var done = (st.dailyDone && st.dailyDone[dayKey()]) || (dg && dg.solved ? dg.elapsed || 1 : 0);   // the saved game still knows after a stats reset
   var dboard = dg || dailyBoard();
   html += '<div class="card"><div class="card-h"><h2>Daily puzzle</h2><span class="aside">' + dtier + '</span></div>' +
     '<button class="play-card" id="c-daily"><div class="thumb">' + thumbFor(dboard, !!dg) + '</div><div class="info"><div class="t2">' +
-    (done ? 'Solved in <b class="num">' + fmtTime(done) + '</b>. Next puzzle tomorrow.' : dg && dg.moved ? 'In progress · ' + savedProgress(dg) + ' of 10 stars' : 'One new puzzle each day.' + (sk.current && !sk.today ? ' Solve any puzzle today to keep your streak.' : '')) +
-    '</div></div><span class="go' + (done ? ' done' : '') + '">' + (done ? I.check : I.play) + '</span></button></div>';
+    (done ? 'Solved in <b class="num">' + fmtTime(done) + '</b>. Next puzzle tomorrow.' : dg && dg.failed ? 'Your Ink attempt ended. Tap to try again.' : dg && dg.moved ? 'In progress · ' + savedProgress(dg) + ' of 10 stars' : 'One new puzzle each day.' + (sk.current && !sk.today ? ' Solve any puzzle today to keep your streak.' : '')) +
+    '</div></div><span class="go' + (done ? ' done' : '') + '">' + (done ? I.check : dg && dg.failed ? I.restore : I.play) + '</span></button></div>';
   html += '<div class="card"><div class="card-h"><h2>New puzzle</h2><div class="mini-seg" id="size-seg" role="tablist" aria-label="Board size">' +
     SIZES.map(function (n) { return '<button data-n="' + n + '" class="' + (n === size ? 'sel' : '') + '">' + sizeLabel(n) + '</button>'; }).join('') + '</div></div>' +
     '<div class="tiers" role="tablist" style="grid-template-columns:repeat(' + tl.length + ',1fr)">' +
@@ -3029,11 +3071,7 @@ function renderPlay() {
   $$('.tiers button', v).forEach(function (b) { b.onclick = function () { store.set(K.tier, b.dataset.t); renderPlay(); genKick(); }; });
   $$('#size-seg button', v).forEach(function (b) { b.onclick = function () { store.set(K.size, +b.dataset.n); renderPlay(); genKick(); }; });
   $('#ink-switch').onclick = function () { S.ink = !S.ink; saveSettings(); renderPlay(); if (S.ink && !seen.inkIntro) showInkIntro(); };
-  $('#start-btn').onclick = function () {
-    var g = savedGame(K.game);
-    if (g && !g.solved && !g.failed && g.moved) confirmSheet('Start a new puzzle?', 'Your ' + g.tier + ' puzzle in progress will be lost.', 'Start new', function () { startNew(); });
-    else startNew();
-  };
+  $('#start-btn').onclick = function () { confirmNew(function () { startNew(); }); };
   if ($('#c-lesson')) $('#c-lesson').onclick = function () { openLesson(); };
 }
 
@@ -3064,10 +3102,10 @@ function showSolvedSheet(r) {
   if (game.ink) badges += '<span class="badge ink">' + I.nib + 'Inked</span>';
   if (game.daily) badges += '<span class="badge gold">' + I.sun + 'Daily</span>';
   var unlock = (r.unlocked || []).map(function (m) { return '<div class="unlock">' + medal(m, true) + '<div><b>New milestone: ' + esc(m.name) + '</b><span>' + esc(m.desc) + '</span></div></div>'; }).join('');
-  openSheet('<div class="center">' + solvedArt() + '<h2>Solved</h2><p class="lead" style="margin-bottom:4px">' + game.tier + ' · ' + fmtTime(game.elapsed) + (game.ink ? ' · in Ink' : '') + '</p><div class="badges">' + badges + '</div></div>' +
+  openSheet('<div class="center">' + solvedArt() + '<h2>Solved</h2><p class="lead" style="margin-bottom:4px">' + gameLabel(game) + ' · ' + fmtTime(game.elapsed) + (game.ink ? ' · in Ink' : '') + '</p><div class="badges">' + badges + '</div></div>' +
     '<div class="facts"><div class="fact"><b>' + fmtTime(game.elapsed) + '</b><span>' + (r.newBest ? '<span class="new-best">New best</span>' : 'Time') + '</span></div><div class="fact"><b>' + fmtTime(r.best) + '</b><span>Best ' + (game.daily ? 'daily' : game.tier) + '</span></div><div class="fact"><b>' + r.streak + '</b><span>Day streak</span></div></div>' +
     unlock + '<button class="btn btn-primary" id="s-next">' + I.play + 'Next puzzle</button><button class="btn btn-soft" id="s-home">Home</button>', function (b) {
-      $('#s-next', b).onclick = function () { closeSheet(); startNew(game.daily ? null : game.tier, game.daily ? null : N); };
+      $('#s-next', b).onclick = function () { closeSheet(); nextPuzzle(); };
       $('#s-home', b).onclick = function () { closeSheet(); goBack(); };
     });
 }
@@ -3077,7 +3115,7 @@ function showInkFailSheet() {
   openSheet('<h2 class="center">' + (dot ? 'Incorrect dot' : 'Incorrect star') + '</h2><p class="lead center">' + (dot ? 'A dot is covering a star, so this puzzle can\'t be finished. Ink marks cannot be undone.' : 'Ink marks cannot be undone, so this puzzle has ended.') + '</p>' +
     '<button class="btn btn-primary" id="f-retry">' + I.restore + 'Retry puzzle</button><button class="btn btn-soft" id="f-new">New puzzle</button><button class="btn btn-text" id="f-show">Show solution</button>', function (b) {
       $('#f-retry', b).onclick = retryBoard;
-      $('#f-new', b).onclick = function () { closeSheet(); startNew(game.daily ? null : game.tier, game.daily ? null : N); };
+      $('#f-new', b).onclick = function () { closeSheet(); nextPuzzle(); };
       $('#f-show', b).onclick = function () {
         closeSheet();
         view.spotlight(null, { stars: solutionCells().filter(function (i) { return marks[i] !== STAR; }) });
@@ -3086,15 +3124,13 @@ function showInkFailSheet() {
     });
 }
 function showMoreMenu() {
-  openSheet('<button class="menu-item" id="mm-new">' + I.spark + 'New puzzle</button>' +
-    '<button class="menu-item" id="mm-look">' + I.sliders + 'Appearance</button>' +
+  openSheet((game.failed ? '<button class="menu-item" id="mm-retry">' + I.restore + 'Retry puzzle</button>' : '') +
+    '<button class="menu-item" id="mm-new">' + I.spark + 'New puzzle</button>' +
+    '<button class="menu-item" id="mm-look">' + I.sliders + 'Settings</button>' +
     '<button class="menu-item" id="mm-learn">' + I.book + 'How to play</button>' +
-    '<p class="note">Puzzle ' + esc(game.id) + ' · ' + game.tier + (game.ink ? ' · Ink' : '') + '</p>', function (b) {
-      $('#mm-new', b).onclick = function () {
-        closeSheet();
-        if (!game.solved && !game.failed && game.moved && !game.daily) confirmSheet('Start a new puzzle?', 'Progress on this puzzle will be lost.', 'Start new', function () { startNew(game.tier, N); });
-        else startNew(game.daily ? null : game.tier, game.daily ? null : N);
-      };
+    '<p class="note">Puzzle ' + esc(game.id) + ' · ' + (game.daily ? 'Daily · ' : '') + gameLabel(game) + (game.ink ? ' · Ink' : '') + '</p>', function (b) {
+      if ($('#mm-retry', b)) $('#mm-retry', b).onclick = retryBoard;
+      $('#mm-new', b).onclick = function () { closeSheet(); nextPuzzle(); };
       $('#mm-look', b).onclick = function () { quickSettings(); };
       $('#mm-learn', b).onclick = function () { closeSheet(); openLesson(); };
     });
@@ -3139,7 +3175,7 @@ function renderLearn() {
     '<button class="btn ' + (done ? 'btn-soft' : 'btn-primary') + ' mt" id="l-start">' + (done ? I.restore + 'Replay lesson' : I.play + 'Start lesson') + '</button></div>' +
     '<div class="card"><div class="card-h"><h2>The rules</h2></div><div class="rules">' +
     rule(ruleArt('row'), '<b>One star in every row</b> and <b>every column</b>.') +
-    rule(ruleArt('region'), '<b>One star in every colour region.</b> Ten regions, ten stars.') +
+    rule(ruleArt('region'), '<b>One star in every colour region.</b> Ten regions and ten stars, or six on a 6×6 board.') +
     rule(ruleArt('touch'), '<b>Stars cannot touch,</b> including diagonally.') +
     '</div></div>' +
     '<div class="card"><div class="card-h"><h2>Controls</h2></div><div class="rules">' +
@@ -3161,7 +3197,7 @@ function renderLearn() {
 }
 function rule(icon, text) { return '<div class="rule"><span class="ic">' + icon + '</span><p>' + text + '</p></div>'; }
 function ruleArt(kind) {
-  var c = ['#FEC9A9', '#9EDCFD', '#CDE7B0'].map(function (h) { return isDark() ? nightOf(h) : h; }), s = '<svg viewBox="0 0 30 30" aria-hidden="true">';
+  var c = isDark() ? [1, 6, 3].map(function (i) { return darkColors('meadow')[i]; }) : ['#FEC9A9', '#9EDCFD', '#CDE7B0'], s = '<svg viewBox="0 0 30 30" aria-hidden="true">';   // peach, blue, lime
   if (kind === 'row') {
     for (var k = 0; k < 3; k++) s += '<rect x="' + (2 + k * 9) + '" y="11" width="8" height="8" rx="2" fill="' + c[1] + '"/>';
     s += '<g transform="translate(15 15) scale(.085)">' + pieceSVG('star', 1) + '</g>';
@@ -3230,7 +3266,8 @@ function renderStats() {
   html += '<div class="card"><div class="card-h cal-head"><h2>' + MONTHS[m.getMonth()] + ' ' + m.getFullYear() + '</h2><button class="cal-nav" id="cal-prev" aria-label="Previous month">' + I.chevL + '</button><button class="cal-nav" id="cal-next" aria-label="Next month"' + (statsMonth >= 0 ? ' disabled style="opacity:.35"' : '') + '>' + I.chevR + '</button></div>' + cal +
     '<div class="legend"><span><i></i>Puzzle solved</span><span><i class="t"></i>Today</span><span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:12px;color:var(--gold);display:inline-block">' + I.spark + '</span>Daily puzzle</span></div></div>';
   // solve times
-  var tierHist = hist.filter(function (h) { return h.t === stTier && (h.n || 10) === statsSize; }).slice(-14), b = st[qKey(stTier, statsSize)] || {};
+  // daily solves are counted under Daily, not their tier, so they stay out of these bars too
+  var tierHist = hist.filter(function (h) { return h.t === stTier && (h.n || 10) === statsSize && !h.y; }).slice(-14), b = st[qKey(stTier, statsSize)] || {};
   var bars = '';
   if (tierHist.length) {
     var mx = Math.max.apply(null, tierHist.map(function (h) { return h.ms; })), mn = Math.min.apply(null, tierHist.map(function (h) { return h.ms; }));
@@ -3275,13 +3312,15 @@ function segRow(key, label, opts) {
 }
 function lookControls(compact) {
   if (compact) {
-    // short version for the in-game sheet: colours, pieces + marks on one row, auto-dots
+    // short version for the in-game sheet: colours, pieces + marks on one row, then theme and assists
     return '<div class="pick-grid sm">' +
       Object.keys(PALETTES).map(function (p) { return '<button class="pick' + (S.palette === p ? ' sel' : '') + '" data-pal="' + p + '" aria-pressed="' + (S.palette === p) + '"><div class="pv">' + palettePreview(p) + '</div><span class="nm">' + PALETTES[p].name + '</span></button>'; }).join('') + '</div>' +
       '<div class="qrow"><div class="pc-row">' +
       PIECES.map(function (p) { return '<button class="pc-btn' + (S.piece === p ? ' sel' : '') + '" data-piece="' + p + '" aria-label="' + PIECE_NAMES[p] + '" aria-pressed="' + (S.piece === p) + '">' + piecePreviewSVG(p, 28) + '</button>'; }).join('') + '</div>' +
       '<div class="mini-seg" data-k="mark">' + [['dot', 'Dot'], ['x', 'Cross']].map(function (o) { return '<button data-v="' + o[0] + '" class="' + (S.mark === o[0] ? 'sel' : '') + '">' + o[1] + '</button>'; }).join('') + '</div></div>' +
-      '<div class="list mt">' + switchRow('autoDots', 'Auto-dots around stars') + '</div>';
+      '<div class="list mt">' + segRow('theme', 'Theme', [['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]) +
+      switchRow('autoDots', 'Auto-dots around stars') + switchRow('autoLines', 'Auto-dots in lines') + switchRow('autoFill', 'Auto-fill last cells') +
+      switchRow('autoCheck', 'Show clashes') + switchRow('showTimer', 'Show timer') + '</div>';
   }
   var html = '<div class="group-label">Board colours</div><div class="pick-grid">' +
     Object.keys(PALETTES).map(function (p) { return '<button class="pick' + (S.palette === p ? ' sel' : '') + '" data-pal="' + p + '" aria-pressed="' + (S.palette === p) + '"><div class="pv">' + palettePreview(p) + '</div><span class="nm">' + PALETTES[p].name + '</span></button>'; }).join('') + '</div>' +
@@ -3333,7 +3372,7 @@ function renderSettings() {
 // In a game: a short sheet over a light scrim, so the board above shows each change as it happens
 function quickSettings() { openSheet('', renderQuick, { light: true }); }
 function renderQuick(b) {
-  b.innerHTML = '<h2 class="sheet-h">Appearance</h2>' + lookControls(true);
+  b.innerHTML = '<h2 class="sheet-h">Settings</h2>' + lookControls(true);
   wireLook(b, function () { renderQuick(b); });
 }
 
@@ -3392,7 +3431,7 @@ function lessonSteps() {
     { kind: 'tap', answer: 17, region: 2, title: 'Last one: the ' + lName(2) + ' star.',
       ok: 'Solved.' },
     { kind: 'done', title: 'Lesson complete',
-      text: 'Full puzzles are 10×10 with ten stars and use the same techniques. <b>Controls:</b> ' + tap + ' once for a dot, twice for a star, or drag across cells to add dots. <b>Hint</b> checks your marks or shows the next step.' }
+      text: 'Full puzzles are 10×10 with ten stars, or 6×6 for a quick game, and use the same techniques. <b>Controls:</b> ' + tap + ' once for a dot, twice for a star, or drag across cells to add dots. <b>Hint</b> checks your marks or shows the next step.' }
   ];
 }
 function openLesson() {
@@ -3461,7 +3500,7 @@ function renderLessonStep() {
   card.style.animation = 'none'; void card.offsetWidth; card.style.animation = '';
   if ($('#l-next')) $('#l-next').onclick = lessonNext;
   if ($('#l-yes')) { $('#l-yes').onclick = function () { lessonAnswer(true); }; $('#l-no').onclick = function () { lessonAnswer(false); }; }
-  if ($('#l-play')) $('#l-play').onclick = function () { closeLessonTo(function () { startNew('Easy', 10); }); };
+  if ($('#l-play')) $('#l-play').onclick = function () { closeLessonTo(function () { confirmNew(function () { startNew('Easy', 10); }); }); };
   if ($('#l-learn')) $('#l-learn').onclick = function () { goBack(); };
   sizeLesson();
 }
@@ -3505,7 +3544,8 @@ function lessonTap(ev) {
   LS.wrong++;
   LS.view.flash(i, 'var(--rose)');
   sfx.soft();  var reg = +LESSON_REG[i], msg;
-  if (LS.marks[i]) msg = 'That cell has a dot, so it cannot hold a star.';
+  if (LS.marks[i] === STAR) msg = 'That cell already has a star.';
+  else if (LS.marks[i]) msg = 'That cell has a dot, so it cannot hold a star.';
   else if (reg !== st.region) msg = 'That cell is ' + lName(reg) + ', not ' + lName(st.region) + '.';
   else msg = 'That ' + lName(st.region) + ' cell is already ruled out.';
   if (LS.wrong >= 2) { msg += ' The answer is circled.'; LS.view.spotlight(null, null, [st.answer]); }

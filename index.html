@@ -1473,7 +1473,7 @@ var E = window.SBEngine;
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.0.2';
+var APP_VERSION = '3.0.3';
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 6×6 is a quick game that tops out at Hard.
 // N and NN always describe the puzzle that is loaded (see setSize).
@@ -3622,6 +3622,7 @@ function renderQuick(b) {
    A 6×6 puzzle solved together. Every question is a real deduction on this board,
    in the order the logic unfolds (checked with the solver). Cells are 0-based r*6+c. */
 var lessonOpen = false, LS = null;
+var tipAfterLesson = false;           // "Learn to play" on the welcome page: the Home Screen page waits until the lesson ends
 var L_N = 6;
 var L_MAP = [1, 8, 2, 4, 9, 6];          // region -> palette colour (peach, lilac, yellow, green, rose, blue in Meadow)
 var L_SOL = [3, 7, 17, 18, 26, 34];
@@ -3695,9 +3696,10 @@ function closeLesson() {
   if (!lessonOpen) return;
   lessonOpen = false; LS = null;
   $('#lesson').hidden = true;
-  if (screen === 'game') { $('#game').hidden = false; lastTick = performance.now(); sizeBoard(); return; }
-  $('#tabbar').hidden = false;
-  showTab(tab);
+  var tip = tipAfterLesson; tipAfterLesson = false;
+  if (screen === 'game') { $('#game').hidden = false; lastTick = performance.now(); sizeBoard(); }
+  else { $('#tabbar').hidden = false; showTab(tab); }
+  if (tip) showHomeTip(function () { });
 }
 function sizeLesson() {
   var main = $('#l-main'), card = $('#l-board-card');
@@ -3746,7 +3748,11 @@ function renderLessonStep() {
   if ($('#l-learn')) $('#l-learn').onclick = function () { goBack(); };
   sizeLesson();
 }
-function closeLessonTo(fn) { if (history.state && history.state.s === 'lesson') { history.back(); setTimeout(fn, 60); } else { closeLesson(); fn(); } }
+function closeLessonTo(fn) {
+  var tip = tipAfterLesson; tipAfterLesson = false;                   // with the Home Screen page still to come, show it before fn
+  var go = tip ? function () { showHomeTip(fn); } : fn;
+  if (history.state && history.state.s === 'lesson') { history.back(); setTimeout(go, 60); } else { closeLesson(); go(); }
+}
 function lessonNext() { if (!LS) return; LS.step++; renderLessonStep(); }
 function lessonAnswer(yes) {
   var st = LS.steps[LS.step];
@@ -3812,7 +3818,7 @@ function showWelcome() {
     '<button class="btn btn-primary" id="w-lesson">' + I.book + 'Learn to play</button><button class="btn btn-text" id="w-skip">Skip</button></div>';
   $('#app').appendChild(w);
   // the Home Screen page reuses this cover, so the app behind never shows through between them
-  $('#w-lesson').onclick = function () { markSeen('welcome'); showHomeTip(openLesson, w); };
+  $('#w-lesson').onclick = function () { markSeen('welcome'); w.remove(); tipAfterLesson = !isInstalled(); openLesson(); };   // teach first, Home Screen page after
   $('#w-skip').onclick = function () { markSeen('welcome'); showHomeTip(function () { }, w); };
 }
 // ---- Home Screen tip: shown once after the welcome page, and kept under Settings > App

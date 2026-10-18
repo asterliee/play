@@ -106,7 +106,9 @@
   color-scheme: dark;
 }
 
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* touch-action: no double-tap zoom anywhere. It is set on every element because iOS Safari doesn't
+   carry it from body into scrolling areas (the tabs, sheets and welcome pages). */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 html, body { margin: 0; height: 100%; }
 body {
   font-family: var(--font-ui);
@@ -1469,7 +1471,7 @@ var E = window.SBEngine;
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '2.2';
+var APP_VERSION = '2.3';
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 6×6 is a quick game that tops out at Hard.
 // N and NN always describe the puzzle that is loaded (see setSize).
@@ -3684,6 +3686,9 @@ function init() {
   bd.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   $('#l-board').addEventListener('contextmenu', function (e) { e.preventDefault(); });
   document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+  // iOS Safari can still zoom on a quick double tap (dot, then star) on the board. Cancelling the
+  // touch's default stops that; the boards run on pointer events, which this doesn't affect.
+  [bd, $('#l-board')].forEach(function (b) { b.addEventListener('touchend', function (e) { if (e.cancelable) e.preventDefault(); }, { passive: false }); });
   $('#g-back').onclick = goBack;
   $('#g-more').onclick = showMoreMenu;
   $('#t-undo').onclick = undo;

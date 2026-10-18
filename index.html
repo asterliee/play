@@ -1473,7 +1473,7 @@ var E = window.SBEngine;
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '2.9.2';
+var APP_VERSION = '3.0';
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 6×6 is a quick game that tops out at Hard.
 // N and NN always describe the puzzle that is loaded (see setSize).
@@ -1521,8 +1521,12 @@ var DEFAULTS = {
   autoDots: true, autoLines: false, autoFill: false, autoCheck: true, showTimer: true,
   sound: false, soundTheme: 'keys', ink: false
 };
-var PIECES = ['star', 'spark', 'moon', 'sun'];
-var PIECE_NAMES = { star: 'Star', spark: 'Spark', moon: 'Moon', sun: 'Sun' };
+var PIECES = ['star', 'mine'];
+var PIECE_NAMES = { star: 'Stars', mine: 'Mines' };
+// Mines: the same puzzle told with mines. A mine blasts its row, column, colour and the cells around it,
+// and no mine may sit in another's blast. The words follow the chosen piece.
+function mines() { return S.piece === 'mine'; }
+function W(s) { return !mines() ? s : String(s).replace(/\bstars\b/g, 'mines').replace(/\bstar\b/g, 'mine').replace(/\bStars\b/g, 'Mines').replace(/\bStar\b/g, 'Mine'); }
 var S = (function () {
   var s = Object.assign({}, DEFAULTS, store.get(K.settings, {}));
   if (PIECES.indexOf(s.piece) < 0) s.piece = 'star';          // retired pieces fall back to the star
@@ -1611,7 +1615,7 @@ function piecePreviewSVG(kind, size) {
 var toastTimer = 0;
 function toast(msg, ms) {
   var t = $('#toast');
-  t.textContent = msg; t.classList.add('show');
+  t.textContent = W(msg); t.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, ms || 2300);
 }
 function hashStr(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -1916,8 +1920,15 @@ var SUN_RAYS = (function () {
   }
   return s;
 })();
+var MINE_SPIKES = (function () {
+  var s = '';
+  for (var k = 0; k < 8; k++) { var a = k * Math.PI / 4, c = Math.cos(a), sn = Math.sin(a); s += 'M' + f1(17 * c) + ' ' + f1(17 * sn) + 'L' + f1(30 * c) + ' ' + f1(30 * sn); }
+  return s;
+})();
 function pieceSVG(kind, scale) {
   var t = scale && scale !== 1 ? ' transform="scale(' + scale + ')"' : '';
+  if (kind === 'mine') return '<g' + t + '><path d="' + MINE_SPIKES + '" stroke="#FFFFFF" stroke-opacity=".85" stroke-width="10" stroke-linecap="round"/><path d="' + MINE_SPIKES + '" stroke="#2A2D40" stroke-width="6" stroke-linecap="round"/>' +
+    '<circle r="22" fill="url(#g-mine)" stroke="#FFFFFF" stroke-opacity=".85" stroke-width="2.4"/><circle cx="-7.5" cy="-8" r="5.5" fill="#FFFFFF" opacity=".4"/><circle r="5.2" fill="#FF7A3D"/></g>';
   if (kind === 'moon') return '<g' + t + '><path d="' + MOON_D + '" fill="url(#g-moon)" stroke="#B88A1C" stroke-width="2.6" stroke-linejoin="round" transform="rotate(-18)"/><circle cx="16" cy="-21" r="3.4" fill="#F7DB8A"/></g>';
   if (kind === 'spark') return '<g' + t + '><path d="' + SPARK_D + '" fill="url(#g-star)" stroke="#B5770F" stroke-width="2.6" stroke-linejoin="round"/><circle cx="0" cy="0" r="4.5" fill="#FFF3CF" opacity=".8"/></g>';
   if (kind === 'sun') return '<g' + t + '><path d="' + SUN_RAYS + '" stroke="#D98E1E" stroke-width="6.5" stroke-linecap="round" fill="none"/><circle cx="0" cy="0" r="18.5" fill="url(#g-star)" stroke="#B5770F" stroke-width="2.6"/><path d="M-8 -10q-4 3 -4 8" stroke="#FFF3CF" stroke-width="3.6" stroke-linecap="round" fill="none" opacity=".75"/></g>';
@@ -1927,6 +1938,7 @@ function pieceSVG(kind, scale) {
 function sharedDefs() {
   return '<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>' +
     '<linearGradient id="g-star" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD66B"/><stop offset="1" stop-color="#EDA22F"/></linearGradient>' +
+    '<linearGradient id="g-mine" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5C6180"/><stop offset="1" stop-color="#1C1E2C"/></linearGradient>' +
     '<linearGradient id="g-moon" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE9A6"/><stop offset="1" stop-color="#F0C04F"/></linearGradient>' +
     '<filter id="f-glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter>' +
     '</defs></svg>';
@@ -2082,13 +2094,14 @@ BoardView.prototype.ripple = function (i, delay) {
   setTimeout(function () { c.remove(); }, 700 + (delay || 0));
 };
 BoardView.prototype.bloom = function (i) {
-  var p = this.xy(i), fx = this.gFx;
-  var glow = el('circle', { cx: p[0], cy: p[1], r: 46, fill: 'var(--gold-glow)', 'class': 'fx-glow' }, fx);
+  var p = this.xy(i), fx = this.gFx, m = mines();
+  if (m) { var ring = el('circle', { cx: p[0], cy: p[1], r: 150, fill: 'none', stroke: '#FF7A3D', 'stroke-width': 7, 'class': 'fx-ripple', opacity: 0 }, fx); setTimeout(function () { ring.remove(); }, 700); }
+  var glow = el('circle', { cx: p[0], cy: p[1], r: m ? 72 : 46, fill: m ? 'rgba(255,122,61,.55)' : 'var(--gold-glow)', 'class': 'fx-glow' }, fx);
   setTimeout(function () { glow.remove(); }, 450);
   for (var k = 0; k < 6; k++) {
     var a = -Math.PI / 2 + k * Math.PI / 3 + .3, dist = 30 + (k % 2) * 6;
     var g = el('g', { transform: 'translate(' + p[0] + ' ' + p[1] + ')' }, fx);
-    var s = el('path', { d: 'M0 -9C1 -3 3 -1 9 0 3 1 1 3 0 9-1 3-3 1-9 0-3-1-1-3 0-9Z', fill: 'var(--gold)', 'class': 'fx-spark' }, g);
+    var s = el('path', { d: 'M0 -9C1 -3 3 -1 9 0 3 1 1 3 0 9-1 3-3 1-9 0-3-1-1-3 0-9Z', fill: m ? '#FF7A3D' : 'var(--gold)', 'class': 'fx-spark' }, g);
     s.style.setProperty('--tx', (Math.cos(a) * dist).toFixed(1) + 'px');
     s.style.setProperty('--ty', (Math.sin(a) * dist).toFixed(1) + 'px');
     (function (gg) { setTimeout(function () { gg.remove(); }, 420); })(g);
@@ -2171,6 +2184,7 @@ BoardView.prototype.flash = function (i, color) {
 // Solved: join the stars into a constellation, then let each one twinkle
 var constelSeq = 0;
 BoardView.prototype.constellation = function (cells) {
+  if (mines()) { var me = this; cells.slice().sort(function (a, b) { return a - b; }).forEach(function (i, k) { setTimeout(function () { me.bloom(i); }, 120 * k); }); return; }   // a chain reaction
   var self = this, pts = cells.slice().sort(function (a, b) { return a - b; }).map(function (i) { return self.xy(i); });
   var d = 'M' + pts.map(function (p) { return p[0] + ' ' + p[1]; }).join('L');
   var g = el('g', {}, this.gFx), size = this.n * U, id = this.id + 'cm' + (++constelSeq);
@@ -2408,11 +2422,27 @@ var SOUND_THEMES = [['keys', 'Keys'], ['warm', 'Warm'], ['bubbles', 'Bubbles']];
 // How far into the solve a star is: 0 for the first star, 1 for the last
 function prog(count, n) { n = n || N; return count && n > 1 ? clamp((count - 1) / (n - 1), 0, 1) : .5; }
 var sfx = {};
-['dot', 'erase', 'ink', 'clash', 'wrong', 'soft', 'undo', 'redo', 'clear', 'hint', 'win'].forEach(function (k) {
+['dot', 'erase', 'ink', 'clash', 'wrong', 'soft', 'undo', 'redo', 'clear', 'hint'].forEach(function (k) {
   sfx[k] = function (i, ms) { if (S.sound) (THEMES[S.soundTheme] || THEMES.keys)[k](i, ms || 0); };
 });
 // the count-th star placed, at cell i of an n×n board
-sfx.star = function (i, count, n) { if (S.sound) (THEMES[S.soundTheme] || THEMES.keys).star(i, prog(count, n), n); };
+function blast(p, delay, pan) {
+  play(delay, { pan: pan, room: .18 + .12 * p }, function (ch, t) {
+    noise(ch, t, .5 + .2 * p, .3 + .15 * p, { from: 1400, to: 120, attack: .004 });
+    partial(ch, t, 140, .35, .2 + .1 * p, { to: 50, attack: .003 });
+    partial(ch, t, 290, .1, .1, { to: 120 });
+  });
+}
+sfx.star = function (i, count, n) {
+  if (!S.sound) return;
+  if (mines()) return blast(prog(count, n), 0, cellPan(i, n));
+  (THEMES[S.soundTheme] || THEMES.keys).star(i, prog(count, n), n);
+};
+sfx.win = function () {
+  if (!S.sound) return;
+  if (mines()) { for (var k = 0; k < N; k++) blast(k / (N - 1), .12 * k, ((k % 3) - 1) * .3); return; }
+  (THEMES[S.soundTheme] || THEMES.keys).win();
+};
 sfx.ok = function () { sfx.star(44, 7, 10); };
 // a short sample of the chosen style: two dots and a star
 sfx.preview = function () { sfx.dot(33); sfx.dot(36, 150); setTimeout(function () { sfx.star(55, 7, 10); }, 330); };
@@ -2560,8 +2590,8 @@ function computeConflicts() {
   return conflicts.length > 0;
 }
 function coverOf(s, out) {
-  if (S.autoDots) geoN.nei8[s].forEach(function (j) { out[j] = 1; });
-  if (S.autoLines) for (var i = 0; i < NN; i++) if (i !== s && ((i / N | 0) === (s / N | 0) || i % N === s % N || regOf(i) === regOf(s))) out[i] = 1;
+  if (S.autoDots || mines()) geoN.nei8[s].forEach(function (j) { out[j] = 1; });
+  if (S.autoLines || mines()) for (var i = 0; i < NN; i++) if (i !== s && ((i / N | 0) === (s / N | 0) || i % N === s % N || regOf(i) === regOf(s))) out[i] = 1;
 }
 var geoN = E.geometry(N);
 // returns {cell: delay} so auto-dots ripple outward from the new star
@@ -3120,11 +3150,11 @@ function updateGameChrome() {
   $('#timer').classList.toggle('off', !S.showTimer);
   $('#timer-t').textContent = fmtTime(game.elapsed);
   var n = starList().length, p = '', prev = +($('#progress').dataset.n || 0);
-  var ghost = '<svg viewBox="-50 -50 100 100" aria-hidden="true"><path d="' + STAR_D + '" fill="currentColor"/></svg>';
+  var ghost = '<svg viewBox="-50 -50 100 100" aria-hidden="true">' + (mines() ? '<circle r="26" fill="currentColor"/>' : '<path d="' + STAR_D + '" fill="currentColor"/>') + '</svg>';
   for (var k = 0; k < N; k++) p += k < n ? '<span class="p-on' + (k >= prev && k === n - 1 ? ' p-new' : '') + '">' + piecePreviewSVG(S.piece, 16) + '</span>' : '<span class="p-off">' + ghost + '</span>';
   $('#progress').innerHTML = p;
   $('#progress').dataset.n = n;
-  $('#progress').setAttribute('aria-label', n + ' of ' + N + ' stars placed');
+  $('#progress').setAttribute('aria-label', W(n + ' of ' + N + ' stars placed'));
   var over = game.solved || game.failed;
   $('#t-undo').disabled = over || game.ink || !game.hist.length;
   $('#t-redo').disabled = over || game.ink || !game.fut.length;
@@ -3166,7 +3196,7 @@ function renderHint() {
   } else { text = 'No further step found.'; chip = ''; go = 'OK'; }
   card.innerHTML = '<div class="hint-top">' + I.lantern + '<div class="hint-text"></div></div>' +
     '<div class="hint-foot">' + (chip ? '<span class="hint-chip"></span>' : '') + '<span class="sp"></span><button class="pill ghost" id="h-close">Close</button><button class="pill primary" id="h-go"></button></div>';
-  $('.hint-text', card).textContent = text;
+  $('.hint-text', card).textContent = W(text);
   if (chip) $('.hint-chip', card).textContent = chip;
   $('#h-go', card).textContent = go;
   $('#h-go', card).onclick = hintAction;
@@ -3245,21 +3275,21 @@ function renderPlay() {
     '<div class="greet"><h1>' + greeting() + '</h1><p>' + DAYS[now.getDay()] + ', ' + now.getDate() + ' ' + MONTHS[now.getMonth()] + (sk.current ? ' · ' + sk.current + '-day streak' : '') + '</p></div>';
   if (saved && !saved.solved && !saved.failed) {
     var n = savedProgress(saved), sn = boardSize(saved.regions);
-    html += '<div class="card"><button class="play-card" id="c-continue"><div class="thumb">' + thumbFor(saved, true) + '</div><div class="info"><div class="eyebrow">Continue</div><div class="t1">' + (sn !== 10 ? sizeLabel(sn) + ' ' : '') + saved.tier + (saved.ink ? ' · Ink' : '') + '</div><div class="t2">' + n + ' of ' + sn + ' stars · ' + fmtTime(saved.elapsed) + '</div></div><span class="go">' + I.play + '</span></button></div>';
+    html += '<div class="card"><button class="play-card" id="c-continue"><div class="thumb">' + thumbFor(saved, true) + '</div><div class="info"><div class="eyebrow">Continue</div><div class="t1">' + (sn !== 10 ? sizeLabel(sn) + ' ' : '') + saved.tier + (saved.ink ? ' · Ink' : '') + '</div><div class="t2">' + n + ' of ' + sn + W(' stars · ') + fmtTime(saved.elapsed) + '</div></div><span class="go">' + I.play + '</span></button></div>';
   }
   var dtier = dailyTier(), dg = daily && daily.daily === dayKey() ? daily : null;
   var done = (st.dailyDone && st.dailyDone[dayKey()]) || (dg && dg.solved ? dg.elapsed || 1 : 0);   // the saved game still knows after a stats reset
   var dboard = dg || dailyBoard();
   html += '<div class="card"><div class="card-h"><h2>Daily puzzle</h2><span class="aside">' + dtier + '</span></div>' +
     '<button class="play-card" id="c-daily"><div class="thumb">' + thumbFor(dboard, !!dg) + '</div><div class="info"><div class="t2">' +
-    (done ? 'Solved in <b class="num">' + fmtTime(done) + '</b>. Next puzzle tomorrow.' : dg && dg.failed ? 'Your Ink attempt ended. Tap to try again.' : dg && dg.moved ? 'In progress · ' + savedProgress(dg) + ' of 10 stars' : 'One new puzzle each day.' + (sk.current && !sk.today ? ' Solve any puzzle today to keep your streak.' : '')) +
+    (done ? 'Solved in <b class="num">' + fmtTime(done) + '</b>. Next puzzle tomorrow.' : dg && dg.failed ? 'Your Ink attempt ended. Tap to try again.' : dg && dg.moved ? 'In progress · ' + savedProgress(dg) + W(' of 10 stars') : 'One new puzzle each day.' + (sk.current && !sk.today ? ' Solve any puzzle today to keep your streak.' : '')) +
     '</div></div><span class="go' + (done ? ' done' : '') + '">' + (done ? I.check : dg && dg.failed ? I.restore : I.play) + '</span></button></div>';
   html += '<div class="card"><div class="card-h"><h2>New puzzle</h2><div class="mini-seg" id="size-seg" role="tablist" aria-label="Board size">' +
     SIZES.map(function (n) { return '<button data-n="' + n + '" class="' + (n === size ? 'sel' : '') + '">' + sizeLabel(n) + '</button>'; }).join('') + '</div></div>' +
     '<div class="tiers" role="tablist" style="grid-template-columns:repeat(' + tl.length + ',1fr)">' +
     tl.map(function (t) { return '<button data-t="' + t + '" class="' + (t === tier ? 'sel' : '') + '">' + t + '</button>'; }).join('') + '</div>' +
     '<div class="tier-note"><span class="pips">' + tl.map(function (t, k) { return '<i class="' + (k <= tl.indexOf(tier) ? 'on' : '') + '"></i>'; }).join('') + '</span><span>' + TIER_NOTE[tier] + '</span></div>' +
-    '<div class="mode-row"><span class="ic">' + I.nib + '</span><span class="txt"><b>Ink mode</b><span>Stars and dots are permanent.</span></span><button class="switch' + (S.ink ? ' on' : '') + '" id="ink-switch" role="switch" aria-checked="' + S.ink + '" aria-label="Ink mode"></button></div>' +
+    '<div class="mode-row"><span class="ic">' + I.nib + '</span><span class="txt"><b>Ink mode</b><span>' + W('Stars and dots are permanent.') + '</span></span><button class="switch' + (S.ink ? ' on' : '') + '" id="ink-switch" role="switch" aria-checked="' + S.ink + '" aria-label="Ink mode"></button></div>' +
     '<button class="btn btn-primary mt" id="start-btn">' + I.play + 'Start ' + (size !== 10 ? sizeLabel(size) + ' ' : '') + tier + (S.ink ? ' in Ink' : '') + '</button></div>';
   if (!seen.lesson) html += '<div class="card"><div class="lesson-card"><div class="thumb">' + lessonThumb() + '</div><div><h3>New to the game?</h3><p>Learn the rules with a short guided puzzle.</p></div></div><button class="btn btn-soft mt" id="c-lesson">' + I.book + 'Start lesson</button></div>';
   v.innerHTML = html;
@@ -3310,7 +3340,7 @@ function showSolvedSheet(r) {
 function showInkFailSheet() {
   if (!game || !game.failed) return;
   var dot = game.failKind === 'dot';
-  openSheet('<h2 class="center">' + (dot ? 'Incorrect dot' : 'Incorrect star') + '</h2><p class="lead center">' + (dot ? 'A dot is covering a star, so this puzzle can\'t be finished. Ink marks cannot be undone.' : 'Ink marks cannot be undone, so this puzzle has ended.') + '</p>' +
+  openSheet('<h2 class="center">' + W(dot ? 'Incorrect dot' : 'Incorrect star') + '</h2><p class="lead center">' + W(dot ? 'A dot is covering a star, so this puzzle can\'t be finished. Ink marks cannot be undone.' : 'Ink marks cannot be undone, so this puzzle has ended.') + '</p>' +
     '<button class="btn btn-primary" id="f-retry">' + I.restore + 'Retry puzzle</button><button class="btn btn-soft" id="f-new">New puzzle</button><button class="btn btn-text" id="f-show">Show solution</button>', function (b) {
       $('#f-retry', b).onclick = retryBoard;
       $('#f-new', b).onclick = function () { closeSheet(); nextPuzzle(); };
@@ -3386,14 +3416,14 @@ function renderLearn() {
     '<div class="card"><div class="card-h"><h2>Techniques</h2><span class="aside">Easy to Expert</span></div>' +
     TECH_DIAGRAMS.map(function (t, k) {
       return '<div class="tech' + (k === 0 ? ' open' : '') + '"><button class="tech-h"><b>' + t.name + '</b><span class="lvl">' + t.lvl + '</span>' + I.chevR + '</button>' +
-        '<div class="tech-b">' + (t.reg ? '<div class="dg">' + techDiagram(t) + '</div>' : '') + '<p>' + t.text + '</p></div></div>';
+        '<div class="tech-b">' + (t.reg ? '<div class="dg">' + techDiagram(t) + '</div>' : '') + '<p>' + W(t.text) + '</p></div></div>';
     }).join('') + '</div>' +
     '<p class="note center">Every puzzle has exactly one solution.</p>';
   v.innerHTML = html;
   $('#l-start').onclick = function () { openLesson(); };
   $$('.tech-h', v).forEach(function (b) { b.onclick = function () { b.parentNode.classList.toggle('open'); }; });
 }
-function rule(icon, text) { return '<div class="rule"><span class="ic">' + icon + '</span><p>' + text + '</p></div>'; }
+function rule(icon, text) { return '<div class="rule"><span class="ic">' + icon + '</span><p>' + W(text) + '</p></div>'; }
 function ruleArt(kind) {
   var c = isDark() ? [1, 6, 3].map(function (i) { return darkColors('meadow')[i]; }) : ['#FEC9A9', '#9EDCFD', '#CDE7B0'], s = '<svg viewBox="0 0 30 30" aria-hidden="true">';   // peach, blue, lime
   if (kind === 'row') {
@@ -3521,12 +3551,12 @@ function lookControls(compact) {
   }
   var html = '<div class="group-label">Board colours</div><div class="pick-grid">' +
     Object.keys(PALETTES).map(function (p) { return '<button class="pick' + (S.palette === p ? ' sel' : '') + '" data-pal="' + p + '" aria-pressed="' + (S.palette === p) + '"><div class="pv">' + palettePreview(p) + '</div><span class="nm">' + PALETTES[p].name + '</span></button>'; }).join('') + '</div>' +
-    '<div class="group-label">Pieces</div><div class="pick-grid">' +
+    '<div class="group-label">Play with</div><div class="pick-grid" style="grid-template-columns:repeat(2,1fr)">' +
     PIECES.map(function (p) { return '<button class="pick' + (S.piece === p ? ' sel' : '') + '" data-piece="' + p + '" aria-pressed="' + (S.piece === p) + '"><div class="pv pc">' + piecePreviewSVG(p, 38) + '</div><span class="nm">' + PIECE_NAMES[p] + '</span></button>'; }).join('') + '</div>';
   html += '<div class="group-label">Display</div><div class="list">' +
     segRow('mark', 'Marks', [['dot', 'Dot'], ['x', 'Cross']]) +
     segRow('theme', 'Theme', [['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]) + '</div>' +
-    '<div class="group-label">Sound</div><div class="list">' + switchRow('sound', 'Sounds', 'Each star sounds a little fuller than the last.') + segRow('soundTheme', 'Style', SOUND_THEMES) + '</div>' +
+    '<div class="group-label">Sound</div><div class="list">' + switchRow('sound', 'Sounds', W('Each star sounds a little fuller than the last.')) + segRow('soundTheme', 'Style', SOUND_THEMES) + '</div>' +
     '<div class="group-label">Assists</div><div class="list">' +
     switchRow('autoDots', 'Auto-dots around stars', 'Marks the 8 cells around a new star.') +
     switchRow('autoLines', 'Auto-dots in lines', 'Also marks the star\'s row, column and region.') +
@@ -3636,7 +3666,7 @@ function lessonSteps() {
 function openLesson() {
   closeSheet();
   lessonOpen = true;
-  LS = { step: 0, marks: new Uint8Array(36), steps: lessonSteps(), answered: false, wrong: 0 };
+  LS = { step: 0, marks: new Uint8Array(36), steps: lessonSteps().map(function (st) { ['title', 'text', 'why', 'ok'].forEach(function (k) { if (st[k]) st[k] = W(st[k]); }); return st; }), answered: false, wrong: 0 };
   $('#lesson').hidden = false; $('#tabbar').hidden = true;
   // hide what is behind, since on wide windows the lesson box does not cover the whole window
   $('#game').hidden = true; $$('.view').forEach(function (v) { v.hidden = true; });

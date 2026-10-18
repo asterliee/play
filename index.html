@@ -1473,7 +1473,7 @@ var E = window.SBEngine;
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.0';
+var APP_VERSION = '3.0.1';
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 6×6 is a quick game that tops out at Hard.
 // N and NN always describe the puzzle that is loaded (see setSize).
@@ -1518,11 +1518,11 @@ var K = {
 
 var DEFAULTS = {
   palette: 'meadow', piece: 'star', mark: 'dot', theme: 'system',
-  autoDots: true, autoLines: false, autoFill: false, autoCheck: true, showTimer: true,
+  autoDots: false, autoLines: false, autoFill: false, autoCheck: false, showTimer: true,
   sound: false, soundTheme: 'keys', ink: false
 };
-var PIECES = ['star', 'mine'];
-var PIECE_NAMES = { star: 'Stars', mine: 'Mines' };
+var PIECES = ['star', 'mine', 'moon'];
+var PIECE_NAMES = { star: 'Star', mine: 'Mine', moon: 'Moon' };
 // Mines: the same puzzle told with mines. A mine blasts its row, column, colour and the cells around it,
 // and no mine may sit in another's blast. The words follow the chosen piece.
 function mines() { return S.piece === 'mine'; }
@@ -3551,12 +3551,12 @@ function lookControls(compact) {
   }
   var html = '<div class="group-label">Board colours</div><div class="pick-grid">' +
     Object.keys(PALETTES).map(function (p) { return '<button class="pick' + (S.palette === p ? ' sel' : '') + '" data-pal="' + p + '" aria-pressed="' + (S.palette === p) + '"><div class="pv">' + palettePreview(p) + '</div><span class="nm">' + PALETTES[p].name + '</span></button>'; }).join('') + '</div>' +
-    '<div class="group-label">Play with</div><div class="pick-grid" style="grid-template-columns:repeat(2,1fr)">' +
+    '<div class="group-label">Pieces</div><div class="pick-grid">' +
     PIECES.map(function (p) { return '<button class="pick' + (S.piece === p ? ' sel' : '') + '" data-piece="' + p + '" aria-pressed="' + (S.piece === p) + '"><div class="pv pc">' + piecePreviewSVG(p, 38) + '</div><span class="nm">' + PIECE_NAMES[p] + '</span></button>'; }).join('') + '</div>';
   html += '<div class="group-label">Display</div><div class="list">' +
     segRow('mark', 'Marks', [['dot', 'Dot'], ['x', 'Cross']]) +
     segRow('theme', 'Theme', [['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]) + '</div>' +
-    '<div class="group-label">Sound</div><div class="list">' + switchRow('sound', 'Sounds', W('Each star sounds a little fuller than the last.')) + segRow('soundTheme', 'Style', SOUND_THEMES) + '</div>' +
+    '<div class="group-label">Sound</div><div class="list">' + switchRow('sound', 'Sounds') + segRow('soundTheme', 'Style', SOUND_THEMES) + '</div>' +
     '<div class="group-label">Assists</div><div class="list">' +
     switchRow('autoDots', 'Auto-dots around stars', 'Marks the 8 cells around a new star.') +
     switchRow('autoLines', 'Auto-dots in lines', 'Also marks the star\'s row, column and region.') +

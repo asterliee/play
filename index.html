@@ -1473,7 +1473,7 @@ var E = window.SBEngine;
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '2.9.1';
+var APP_VERSION = '2.9.2';
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 6×6 is a quick game that tops out at Hard.
 // N and NN always describe the puzzle that is loaded (see setSize).
@@ -3324,7 +3324,7 @@ function showInkFailSheet() {
 function showMoreMenu() {
   openSheet((game.failed ? '<button class="menu-item" id="mm-retry">' + I.restore + 'Retry puzzle</button>' : '') +
     '<button class="menu-item" id="mm-new">' + I.spark + 'New puzzle</button>' +
-    '<button class="menu-item" id="mm-look">' + I.sliders + 'Settings</button>' +
+    '<button class="menu-item" id="mm-look">' + I.sliders + 'Appearance</button>' +
     '<button class="menu-item" id="mm-learn">' + I.book + 'How to play</button>' +
     '<p class="note">Puzzle ' + esc(game.id) + ' · ' + (game.daily ? 'Daily · ' : '') + gameLabel(game) + (game.ink ? ' · Ink' : '') + '</p>', function (b) {
       if ($('#mm-retry', b)) $('#mm-retry', b).onclick = retryBoard;
@@ -3510,15 +3510,14 @@ function segRow(key, label, opts) {
 }
 function lookControls(compact) {
   if (compact) {
-    // short version for the in-game sheet: colours, pieces + marks on one row, then theme and assists
+    // short version for the in-game sheet: colours, pieces + marks on one row, then theme and sound
     return '<div class="pick-grid sm">' +
       Object.keys(PALETTES).map(function (p) { return '<button class="pick' + (S.palette === p ? ' sel' : '') + '" data-pal="' + p + '" aria-pressed="' + (S.palette === p) + '"><div class="pv">' + palettePreview(p) + '</div><span class="nm">' + PALETTES[p].name + '</span></button>'; }).join('') + '</div>' +
       '<div class="qrow"><div class="pc-row">' +
       PIECES.map(function (p) { return '<button class="pc-btn' + (S.piece === p ? ' sel' : '') + '" data-piece="' + p + '" aria-label="' + PIECE_NAMES[p] + '" aria-pressed="' + (S.piece === p) + '">' + piecePreviewSVG(p, 28) + '</button>'; }).join('') + '</div>' +
       '<div class="mini-seg" data-k="mark">' + [['dot', 'Dot'], ['x', 'Cross']].map(function (o) { return '<button data-v="' + o[0] + '" class="' + (S.mark === o[0] ? 'sel' : '') + '">' + o[1] + '</button>'; }).join('') + '</div></div>' +
       '<div class="list mt">' + segRow('theme', 'Theme', [['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]) +
-      switchRow('autoDots', 'Auto-dots around stars') + switchRow('autoLines', 'Auto-dots in lines') + switchRow('autoFill', 'Auto-fill last cells') +
-      switchRow('autoCheck', 'Show clashes') + switchRow('showTimer', 'Show timer') + switchRow('sound', 'Sounds') + segRow('soundTheme', 'Sound style', SOUND_THEMES) + '</div>';
+      switchRow('sound', 'Sounds') + segRow('soundTheme', 'Sound style', SOUND_THEMES) + '</div>';
   }
   var html = '<div class="group-label">Board colours</div><div class="pick-grid">' +
     Object.keys(PALETTES).map(function (p) { return '<button class="pick' + (S.palette === p ? ' sel' : '') + '" data-pal="' + p + '" aria-pressed="' + (S.palette === p) + '"><div class="pv">' + palettePreview(p) + '</div><span class="nm">' + PALETTES[p].name + '</span></button>'; }).join('') + '</div>' +
@@ -3527,6 +3526,7 @@ function lookControls(compact) {
   html += '<div class="group-label">Display</div><div class="list">' +
     segRow('mark', 'Marks', [['dot', 'Dot'], ['x', 'Cross']]) +
     segRow('theme', 'Theme', [['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]) + '</div>' +
+    '<div class="group-label">Sound</div><div class="list">' + switchRow('sound', 'Sounds', 'Each star sounds a little fuller than the last.') + segRow('soundTheme', 'Style', SOUND_THEMES) + '</div>' +
     '<div class="group-label">Assists</div><div class="list">' +
     switchRow('autoDots', 'Auto-dots around stars', 'Marks the 8 cells around a new star.') +
     switchRow('autoLines', 'Auto-dots in lines', 'Also marks the star\'s row, column and region.') +
@@ -3559,7 +3559,6 @@ function settingsChanged(k) {
 function renderSettings() {
   var v = $('#v-settings');
   v.innerHTML = '<h1 class="page-title">Settings</h1>' + lookControls(false) +
-    '<div class="group-label">Sound</div><div class="list">' + switchRow('sound', 'Sounds', 'Each star sounds a little fuller than the last.') + segRow('soundTheme', 'Style', SOUND_THEMES) + '</div>' +
     (isInstalled() ? '' : '<div class="group-label">App</div><div class="list"><button class="li" id="home-tip">' + I.phone + '<span class="lbl">Add to Home Screen<span class="sub">Play full screen like an app, even offline.</span></span>' + I.chevR + '</button></div>') +
     '<div class="group-label">Data</div><div class="list">' +
     '<button class="li" id="bk-reset" style="color:var(--rose)">' + I.trash.replace('<svg', '<svg style="color:var(--rose)"') + '<span class="lbl">Reset stats</span></button></div>' +
@@ -3572,7 +3571,7 @@ function renderSettings() {
 // In a game: a short sheet over a light scrim, so the board above shows each change as it happens
 function quickSettings() { openSheet('', renderQuick, { light: true }); }
 function renderQuick(b) {
-  b.innerHTML = '<h2 class="sheet-h">Settings</h2>' + lookControls(true);
+  b.innerHTML = '<h2 class="sheet-h">Appearance</h2>' + lookControls(true);
   wireLook(b, function () { renderQuick(b); });
 }
 

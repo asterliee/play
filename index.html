@@ -419,6 +419,16 @@ svg { display: block; }
 .welcome-cap { font-size: 15px; font-weight: 600; color: var(--primary); margin: -2px 0 12px; }
 .welcome p { color: var(--ink-2); font-size: 16.5px; line-height: 1.5; margin: 0 0 26px; max-width: 330px; }
 .welcome .btn { max-width: 340px; }
+.welcome { overflow-y: auto; justify-content: flex-start; }      /* auto margins centre it, and it scrolls when taller than the screen */
+.welcome > :first-child { margin-top: auto; }
+.welcome > :last-child { margin-bottom: auto; }
+.phone-art { position: relative; width: 112px; height: 150px; margin-bottom: 4px; flex: none; }
+.phone-art .pa-icon { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.steps-box { width: 100%; max-width: 340px; text-align: left; margin: -8px 0 16px; }
+.steps { margin: 4px 0 14px; padding-left: 22px; text-align: left; }
+.steps li { margin: 7px 0; line-height: 1.45; font-size: 15.5px; color: var(--ink); }
+.steps-h { font-weight: 650; font-size: 15px; margin: 8px 0 0; text-align: left; }
+.steps-note { margin: 0 0 4px !important; font-size: 15px !important; color: var(--ink-2); text-align: left; }
 
 /* toast */
 .toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 64px); transform: translate(-50%, -10px); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 16px; font-size: 15px; font-weight: 500; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 80; max-width: calc(100% - 40px); text-align: center; box-shadow: var(--shadow-2); }
@@ -1558,6 +1568,7 @@ var I = {
   restore: sv('<path d="M4.6 12a7.4 7.4 0 1 0 2.2-5.2"/><path d="M4.4 4.4v3.8h3.8"/>'),
   trash: sv('<path d="M4.6 7h14.8"/><path d="M9.4 7V5.2c0-.7.5-1.2 1.2-1.2h2.8c.7 0 1.2.5 1.2 1.2V7"/><path d="m6.4 7 .9 12.2c.1 1 .9 1.8 1.9 1.8h5.6c1 0 1.8-.8 1.9-1.8L17.6 7"/>'),
   bolt: sv('<path d="M13.2 2.8 5.6 13.4h5.6l-1 7.8 7.6-10.6h-5.6z"/>'),
+  phone: sv('<rect x="6.6" y="2.8" width="10.8" height="18.4" rx="2.6"/><path d="M10.6 18.1h2.8"/>'),
   rotate: sv('<rect x="7.5" y="3" width="9" height="16" rx="2.4"/><path d="M11 16.4h2"/><path d="M19.8 9.5a8.6 8.6 0 0 1-2.2 8.8"/><path d="m15.2 17.4 2.4 1.3 1-2.6"/>')
 };
 function piecePreviewSVG(kind, size) {
@@ -3275,10 +3286,12 @@ function renderSettings() {
   var v = $('#v-settings');
   v.innerHTML = '<h1 class="page-title">Settings</h1>' + lookControls(false) +
     '<div class="group-label">Sound</div><div class="list">' + switchRow('sound', 'Sounds', 'Short tones for dots and stars.') + '</div>' +
+    (isInstalled() ? '' : '<div class="group-label">App</div><div class="list"><button class="li" id="home-tip">' + I.phone + '<span class="lbl">Add to Home Screen<span class="sub">Play full screen like an app, even offline.</span></span>' + I.chevR + '</button></div>') +
     '<div class="group-label">Data</div><div class="list">' +
     '<button class="li" id="bk-reset" style="color:var(--rose)">' + I.trash.replace('<svg', '<svg style="color:var(--rose)"') + '<span class="lbl">Reset stats</span></button></div>' +
     '<p class="note center">' + APP_NAME + ' ' + APP_VERSION + ' · Progress is stored on this device only.</p>';
   wireLook(v, renderSettings);
+  if ($('#home-tip')) $('#home-tip').onclick = showHomeSteps;
   $$('.switch[data-k]', v).forEach(function () { });
   $('#bk-reset').onclick = function () { confirmSheet('Reset all stats?', 'Solve counts, streaks, best times and milestones will be cleared. Settings and the current game are kept.', 'Reset stats', function () { store.del(K.stats); toast('Stats reset'); renderSettings(); }); };
 }
@@ -3481,8 +3494,36 @@ function showWelcome() {
     '<p>Place one star in every row, column and colour region. Stars cannot touch, including diagonally.</p>' +
     '<button class="btn btn-primary" id="w-lesson">' + I.book + 'Learn to play</button><button class="btn btn-text" id="w-skip">Skip</button>';
   $('#app').appendChild(w);
-  $('#w-lesson').onclick = function () { markSeen('welcome'); w.remove(); openLesson(); };
-  $('#w-skip').onclick = function () { markSeen('welcome'); w.remove(); };
+  $('#w-lesson').onclick = function () { markSeen('welcome'); w.remove(); showHomeTip(openLesson); };
+  $('#w-skip').onclick = function () { markSeen('welcome'); w.remove(); showHomeTip(function () { }); };
+}
+// ---- Home Screen tip: shown once after the welcome page, and kept under Settings > App
+var IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+var IS_ANDROID = /Android/i.test(navigator.userAgent);
+function isInstalled() { return !!(navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)); }
+var HOME_TIP = APP_NAME + ' is made for phones. Add it to your Home Screen and it opens full screen like an app, and keeps working offline.';
+function homeSteps() {
+  var ios = '<ol class="steps"><li>In Safari, tap the <b>Share</b> button (the square with an arrow pointing up).</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>.</li></ol>';
+  var android = '<ol class="steps"><li>In Chrome, tap the <b>&#8942;</b> menu at the top right.</li><li>Tap <b>Add to Home screen</b> (or <b>Install app</b>).</li><li>Tap <b>Add</b> or <b>Install</b>.</li></ol>';
+  if (IS_IOS) return ios;
+  if (IS_ANDROID) return android;
+  return '<p class="steps-note">Open this page on your phone, then:</p><div class="steps-h">iPhone</div>' + ios + '<div class="steps-h">Android</div>' + android;
+}
+function phoneArt() {
+  return '<div class="phone-art"><svg viewBox="0 0 112 150" width="112" height="150" aria-hidden="true"><rect x="18" y="4" width="76" height="142" rx="17" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="3"/><rect x="44" y="12" width="24" height="5" rx="2.5" fill="var(--ink-3)" opacity=".55"/></svg><span class="pa-icon">' + brandMark(46) + '</span></div>';
+}
+function showHomeTip(next) {
+  if (isInstalled()) { next(); return; }
+  var w = document.createElement('div');
+  w.className = 'welcome'; w.id = 'welcome';
+  w.innerHTML = phoneArt() + '<h1>Best on your phone</h1><p>' + HOME_TIP + '</p><div class="steps-box" id="w-steps" hidden>' + homeSteps() + '</div>' +
+    '<button class="btn btn-soft" id="w-how">See steps</button><button class="btn btn-primary mt" id="w-next">Continue</button>';
+  $('#app').appendChild(w);
+  $('#w-how').onclick = function () { $('#w-steps').hidden = false; $('#w-how').remove(); };
+  $('#w-next').onclick = function () { w.remove(); next(); };
+}
+function showHomeSteps() {
+  openSheet('<h2 class="center">Add to Home Screen</h2><p class="lead center">' + HOME_TIP + '</p>' + homeSteps() + '<button class="btn btn-primary" id="hs-ok">Done</button>', function (b) { $('#hs-ok', b).onclick = closeSheet; });
 }
 function refreshAll() {
   applyTheme();

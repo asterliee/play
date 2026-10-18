@@ -1473,7 +1473,7 @@ var E = window.SBEngine;
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.0.1';
+var APP_VERSION = '3.0.2';
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 6×6 is a quick game that tops out at Hard.
 // N and NN always describe the puzzle that is loaded (see setSize).
@@ -1518,7 +1518,7 @@ var K = {
 
 var DEFAULTS = {
   palette: 'meadow', piece: 'star', mark: 'dot', theme: 'system',
-  autoDots: false, autoLines: false, autoFill: false, autoCheck: false, showTimer: true,
+  autoDots: false, autoLines: false, autoFill: false, autoCheck: true, showTimer: true,
   sound: false, soundTheme: 'keys', ink: false
 };
 var PIECES = ['star', 'mine', 'moon'];
@@ -3547,7 +3547,7 @@ function lookControls(compact) {
       PIECES.map(function (p) { return '<button class="pc-btn' + (S.piece === p ? ' sel' : '') + '" data-piece="' + p + '" aria-label="' + PIECE_NAMES[p] + '" aria-pressed="' + (S.piece === p) + '">' + piecePreviewSVG(p, 28) + '</button>'; }).join('') + '</div>' +
       '<div class="mini-seg" data-k="mark">' + [['dot', 'Dot'], ['x', 'Cross']].map(function (o) { return '<button data-v="' + o[0] + '" class="' + (S.mark === o[0] ? 'sel' : '') + '">' + o[1] + '</button>'; }).join('') + '</div></div>' +
       '<div class="list mt">' + segRow('theme', 'Theme', [['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]) +
-      switchRow('sound', 'Sounds') + segRow('soundTheme', 'Sound style', SOUND_THEMES) + '</div>';
+      soundRow() + '</div>';
   }
   var html = '<div class="group-label">Board colours</div><div class="pick-grid">' +
     Object.keys(PALETTES).map(function (p) { return '<button class="pick' + (S.palette === p ? ' sel' : '') + '" data-pal="' + p + '" aria-pressed="' + (S.palette === p) + '"><div class="pv">' + palettePreview(p) + '</div><span class="nm">' + PALETTES[p].name + '</span></button>'; }).join('') + '</div>' +
@@ -3556,7 +3556,7 @@ function lookControls(compact) {
   html += '<div class="group-label">Display</div><div class="list">' +
     segRow('mark', 'Marks', [['dot', 'Dot'], ['x', 'Cross']]) +
     segRow('theme', 'Theme', [['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]) + '</div>' +
-    '<div class="group-label">Sound</div><div class="list">' + switchRow('sound', 'Sounds') + segRow('soundTheme', 'Style', SOUND_THEMES) + '</div>' +
+    '<div class="group-label">Sound</div><div class="list">' + soundRow() + '</div>' +
     '<div class="group-label">Assists</div><div class="list">' +
     switchRow('autoDots', 'Auto-dots around stars', 'Marks the 8 cells around a new star.') +
     switchRow('autoLines', 'Auto-dots in lines', 'Also marks the star\'s row, column and region.') +
@@ -3565,7 +3565,20 @@ function lookControls(compact) {
     switchRow('showTimer', 'Show timer') + '</div>';
   return html;
 }
+// One choice for sound: Mute, or one of the styles
+function soundRow() {
+  var cur = S.sound ? S.soundTheme : 'mute';
+  return '<div class="li"><div class="mini-seg" data-snd="1" aria-label="Sound" style="flex:1">' + [['mute', 'Mute']].concat(SOUND_THEMES).map(function (o) {
+    return '<button data-v="' + o[0] + '" style="flex:1" class="' + (cur === o[0] ? 'sel' : '') + '">' + o[1] + '</button>'; }).join('') + '</div></div>';
+}
 function wireLook(root, after) {
+  $$('.mini-seg[data-snd]', root).forEach(function (sg) {
+    $$('button', sg).forEach(function (bt) { bt.onclick = function () {
+      var v = bt.dataset.v; S.sound = v !== 'mute'; if (S.sound) S.soundTheme = v; saveSettings();
+      $$('button', sg).forEach(function (x) { x.classList.toggle('sel', x === bt); });
+      if (S.sound) sfx.preview();                                   // a short sample of the chosen style
+    }; });
+  });
   $$('[data-pal]', root).forEach(function (b) { b.onclick = function () { S.palette = b.dataset.pal; saveSettings(); settingsChanged('palette'); after(); }; });
   $$('[data-piece]', root).forEach(function (b) { b.onclick = function () { S.piece = b.dataset.piece; saveSettings(); settingsChanged('piece'); after(); }; });
   $$('.switch[data-k]', root).forEach(function (sw) {
@@ -3573,7 +3586,6 @@ function wireLook(root, after) {
   });
   $$('.mini-seg[data-k]', root).forEach(function (sg) {
     $$('button', sg).forEach(function (bt) { bt.onclick = function () { S[sg.dataset.k] = bt.dataset.v; saveSettings(); $$('button', sg).forEach(function (x) { x.classList.toggle('sel', x === bt); }); settingsChanged(sg.dataset.k); if (sg.dataset.k === 'theme') after();
-      if (sg.dataset.k === 'soundTheme') { if (!S.sound) { S.sound = true; saveSettings(); after(); } sfx.preview(); }   // picking a style turns sound on and plays a sample
     }; });
   });
 }

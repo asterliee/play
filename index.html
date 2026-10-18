@@ -429,6 +429,7 @@ svg { display: block; }
 /* the content sits in one column: centred when it fits, scrolling (never squeezed) when it doesn't */
 .w-inner { margin: auto 0; width: 100%; display: flex; flex-direction: column; align-items: center; flex-shrink: 0; padding-bottom: calc(env(safe-area-inset-bottom) + 28px); }
 .w-inner > * { flex-shrink: 0; }
+.w-swap { animation: viewIn .3s ease-out both; }       /* new content fading in on a cover that stays put */
 .welcome p.w-note { font-size: 13.5px; color: var(--ink-3); margin: 10px 0 0; }
 .tip-icon { width: 64px; height: 64px; margin-bottom: 2px; flex: none; filter: drop-shadow(0 6px 14px rgba(20, 22, 48, .22)); }
 /* Home Screen guide: a dropdown for the phone, then a short list of steps, each with a small picture */
@@ -1472,7 +1473,7 @@ var E = window.SBEngine;
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '2.7';
+var APP_VERSION = '2.8';
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 6×6 is a quick game that tops out at Hard.
 // N and NN always describe the puzzle that is loaded (see setSize).
@@ -3769,8 +3770,9 @@ function showWelcome() {
     '<p>Place one star in every row, column and colour region. Stars cannot touch, including diagonally.</p>' +
     '<button class="btn btn-primary" id="w-lesson">' + I.book + 'Learn to play</button><button class="btn btn-text" id="w-skip">Skip</button></div>';
   $('#app').appendChild(w);
-  $('#w-lesson').onclick = function () { markSeen('welcome'); w.remove(); showHomeTip(openLesson); };
-  $('#w-skip').onclick = function () { markSeen('welcome'); w.remove(); showHomeTip(function () { }); };
+  // the Home Screen page reuses this cover, so the app behind never shows through between them
+  $('#w-lesson').onclick = function () { markSeen('welcome'); showHomeTip(openLesson, w); };
+  $('#w-skip').onclick = function () { markSeen('welcome'); showHomeTip(function () { }, w); };
 }
 // ---- Home Screen tip: shown once after the welcome page, and kept under Settings > App
 var IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3842,29 +3844,30 @@ function wireGuide(root) {
   sel.onchange = draw;
   draw();
 }
-// Asks first; the steps only appear if they choose to add it now
-function showHomeTip(next) {
-  if (isInstalled()) { next(); return; }
-  var w = document.createElement('div');
-  w.className = 'welcome'; w.id = 'welcome';
+// Asks first; the steps only appear if they choose to add it now. Given the welcome page's cover
+// (host), it swaps the content inside it instead of laying a new page over the app.
+function showHomeTip(next, host) {
+  if (isInstalled()) { if (host) host.remove(); next(); return; }
+  var w = host;
+  if (!w) { w = document.createElement('div'); w.className = 'welcome'; w.id = 'welcome'; }
   function done() { w.remove(); next(); }
+  function page(html) { w.innerHTML = '<div class="w-inner w-swap">' + html + '</div>'; w.scrollTop = 0; }
   function ask() {
-    w.innerHTML = '<div class="w-inner"><div class="tip-icon">' + brandMark(64) + '</div><h1>Best on your phone</h1><p>' + HOME_TIP + '</p>' +
+    page('<div class="tip-icon">' + brandMark(64) + '</div><h1>Best on your phone</h1><p>' + HOME_TIP + '</p>' +
       '<button class="btn btn-primary" id="w-add">' + I.phone + 'Add to Home Screen</button><button class="btn btn-text" id="w-later">Not now</button>' +
-      '<p class="w-note">You can always do it later in Settings.</p></div>';
+      '<p class="w-note">You can always do it later in Settings.</p>');
     $('#w-add', w).onclick = steps;
     $('#w-later', w).onclick = done;
   }
   function steps() {
-    w.innerHTML = '<div class="w-inner"><div class="tip-icon">' + brandMark(64) + '</div><h1>Add to Home Screen</h1>' + guideHTML() +
-      '<button class="btn btn-primary" id="w-next" style="margin-top:22px">Done</button><button class="btn btn-text" id="w-back">Back</button></div>';
+    page('<div class="tip-icon">' + brandMark(64) + '</div><h1>Add to Home Screen</h1>' + guideHTML() +
+      '<button class="btn btn-primary" id="w-next" style="margin-top:22px">Done</button><button class="btn btn-text" id="w-back">Back</button>');
     wireGuide(w);
     $('#w-next', w).onclick = done;
     $('#w-back', w).onclick = ask;
-    w.scrollTop = 0;
   }
   ask();
-  $('#app').appendChild(w);
+  if (!host) $('#app').appendChild(w);
 }
 function showHomeSteps() {
   openSheet('<h2 class="center">Add to Home Screen</h2><p class="lead center">' + HOME_TIP + '</p>' + guideHTML() + '<button class="btn btn-primary mt" id="hs-ok">Done</button>', function (b) { wireGuide(b); $('#hs-ok', b).onclick = closeSheet; });

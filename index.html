@@ -431,15 +431,15 @@ svg { display: block; }
 @keyframes dotIn { 0% { transform: scale(0); opacity: 0; } 55% { transform: scale(1.35); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 .m-out { animation: mOut .2s ease-in both; }
 @keyframes mOut { to { transform: scale(.2); opacity: 0; } }
-.m-star-in { animation: starIn .52s cubic-bezier(.2, .9, .3, 1.25) both; }
-@keyframes starIn { 0% { transform: scale(.25) rotate(-35deg); opacity: 0; } 60% { transform: scale(1.14) rotate(5deg); opacity: 1; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+.m-star-in { animation: starIn .28s cubic-bezier(.3, 1.3, .5, 1) both; }
+@keyframes starIn { 0% { transform: scale(.4) rotate(-14deg); opacity: 0; } 60% { transform: scale(1.12) rotate(2deg); opacity: 1; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
 .m-shake { animation: shake .42s ease-in-out both; }
 @keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
 .fx-ripple { transform-box: fill-box; transform-origin: center; animation: ripple .6s ease-out both; animation-delay: var(--d, 0ms); }
 @keyframes ripple { 0% { transform: scale(.28); opacity: 0; } 12% { opacity: .6; } 100% { transform: scale(1); opacity: 0; } }
-.fx-glow { transform-box: fill-box; transform-origin: center; animation: glow .75s ease-out both; }
+.fx-glow { transform-box: fill-box; transform-origin: center; animation: glow .4s ease-out both; }
 @keyframes glow { 0% { transform: scale(.2); opacity: .65; } 100% { transform: scale(1); opacity: 0; } }
-.fx-spark { animation: spark .62s cubic-bezier(.2, .8, .3, 1) both; }
+.fx-spark { animation: spark .38s cubic-bezier(.2, .8, .3, 1) both; }
 @keyframes spark { 0% { transform: translate(0, 0) scale(1); opacity: 1; } 100% { transform: translate(var(--tx), var(--ty)) scale(.2); opacity: 0; } }
 .fx-trail { transition: opacity .35s ease-out; }
 .fx-trail.fade { opacity: 0 !important; }
@@ -449,7 +449,7 @@ svg { display: block; }
 @keyframes ghost { 0%, 100% { opacity: .95; } 50% { opacity: .4; } }
 .fx-line { animation: drawLine 1.2s cubic-bezier(.4, .1, .3, 1) both; }
 @keyframes drawLine { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
-.fx-glow { animation: glowPulse 2.4s ease-in-out 1.2s infinite alternate; }
+.fx-bead-glow { animation: glowPulse 2.4s ease-in-out 1.2s infinite alternate; }
 @keyframes glowPulse { from { opacity: .35; } to { opacity: .85; } }
 .fx-twinkle { animation: twinkle .7s ease-in-out both; animation-delay: var(--d, 0ms); }
 @keyframes twinkle { 0% { transform: scale(1); } 40% { transform: scale(1.3); } 100% { transform: scale(1); } }
@@ -2016,15 +2016,15 @@ BoardView.prototype.ripple = function (i, delay) {
 };
 BoardView.prototype.bloom = function (i) {
   var p = this.xy(i), fx = this.gFx;
-  var glow = el('circle', { cx: p[0], cy: p[1], r: 58, fill: 'var(--gold-glow)', 'class': 'fx-glow' }, fx);
-  setTimeout(function () { glow.remove(); }, 800);
+  var glow = el('circle', { cx: p[0], cy: p[1], r: 46, fill: 'var(--gold-glow)', 'class': 'fx-glow' }, fx);
+  setTimeout(function () { glow.remove(); }, 450);
   for (var k = 0; k < 6; k++) {
-    var a = -Math.PI / 2 + k * Math.PI / 3 + .3, dist = 44 + (k % 2) * 10;
+    var a = -Math.PI / 2 + k * Math.PI / 3 + .3, dist = 30 + (k % 2) * 6;
     var g = el('g', { transform: 'translate(' + p[0] + ' ' + p[1] + ')' }, fx);
     var s = el('path', { d: 'M0 -9C1 -3 3 -1 9 0 3 1 1 3 0 9-1 3-3 1-9 0-3-1-1-3 0-9Z', fill: 'var(--gold)', 'class': 'fx-spark' }, g);
     s.style.setProperty('--tx', (Math.cos(a) * dist).toFixed(1) + 'px');
     s.style.setProperty('--ty', (Math.sin(a) * dist).toFixed(1) + 'px');
-    (function (gg) { setTimeout(function () { gg.remove(); }, 700); })(g);
+    (function (gg) { setTimeout(function () { gg.remove(); }, 420); })(g);
   }
 };
 BoardView.prototype.trailStart = function (pt, erase) {
@@ -2112,7 +2112,7 @@ BoardView.prototype.constellation = function (cells) {
   var mask = el('mask', { id: id, maskUnits: 'userSpaceOnUse', x: -40, y: -40, width: size + 80, height: size + 80 }, el('defs', {}, g));
   var reveal = el('path', { d: d, fill: 'none', stroke: '#fff', 'stroke-width': 44, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'class': 'fx-line' }, mask);
   var beads = el('g', { mask: 'url(#' + id + ')' }, g);
-  el('path', { d: d, fill: 'none', stroke: 'var(--gold)', 'stroke-width': 17, 'stroke-dasharray': '0 22', 'stroke-linecap': 'round', opacity: .6, filter: 'url(#f-glow)', 'class': 'fx-glow' }, beads);
+  el('path', { d: d, fill: 'none', stroke: 'var(--gold)', 'stroke-width': 17, 'stroke-dasharray': '0 22', 'stroke-linecap': 'round', opacity: .6, filter: 'url(#f-glow)', 'class': 'fx-bead-glow' }, beads);
   el('path', { d: d, fill: 'none', stroke: 'var(--gold)', 'stroke-width': 8, 'stroke-dasharray': '0 22', 'stroke-linecap': 'round' }, beads);
   var len = 0;
   try { len = reveal.getTotalLength(); } catch (e) { len = 4000; }
@@ -2315,7 +2315,7 @@ function addAutoFor(s) {
   for (var i = 0; i < NN; i++) if (cov[i] && marks[i] === EMPTY) {
     marks[i] = AUTO;
     var dr = Math.abs(((i / N) | 0) - ((s / N) | 0)), dc = Math.abs(i % N - s % N);
-    delays[i] = 120 + 55 * Math.max(dr, dc);
+    delays[i] = 40 + 25 * Math.max(dr, dc);
   }
   return delays;
 }

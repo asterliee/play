@@ -47,11 +47,11 @@
  *                   lower bound on such steps in any solve
  *    Easy    only last cells and locked lines
  *    Medium  squeezes and pair counts in a band, at most two pair-count
- *            bottlenecks (one on small boards)
+ *            bottlenecks (one on boards under 8×8)
  *    Hard    anything harder, with at most one expert step
  *    Expert  two or more expert bottlenecks (steps priced 20+: big counts in a
  *            band, scattered triples, what-ifs two rounds deep).
- *            Small boards top out at Hard.
+ *            Boards under 8×8 top out at Hard.
  *
  * 3. Exact solver (countSolutions): bitmask backtracking, used as an
  *    independent uniqueness check.
@@ -61,10 +61,13 @@
  *    to a neighbouring region (regions stay connected and keep their star).
  *    The objective steers the price of the easiest route (the sum of its
  *    rounds) toward the tier's target, minus a small boundary-length penalty
- *    for natural-looking shapes;
- *    layouts the engine can't finish are penalised by how much is left. Only
- *    boards the engine solves completely are ever kept, so every board is
- *    deterministic and unique.
+ *    for natural-looking shapes and, where a size sets it, a soft pull toward
+ *    the average region size; layouts the engine can't finish are penalised
+ *    by how much is left. Each size has its own tier settings (TIERS for
+ *    10×10, TIERS_8, TIERS_SMALL), which can also ask for a technique mix:
+ *    8×8 Expert needs a count among its expert steps. Only boards the engine
+ *    solves completely are ever kept, so every board is deterministic and
+ *    unique.
  *
  * Works in browsers (window / Web Worker) and in Node.
  */
@@ -568,26 +571,27 @@
     return s.reset();
   }
   // The easiest route: each round applies every step at the lowest price available.
-  // Returns { solved, rounds: [price per round], score (sum), ceiling (highest price),
-  //   steps, techs (steps of each technique), remaining, solution?, log? (the steps of each round) }
+  // Returns { solved, rounds: [price per round], kinds: [technique per round], score (sum),
+  //   ceiling (highest price), steps, techs (steps of each technique), remaining, solution?,
+  //   log? (the steps of each round) }
   function route(L, opts, record) {
     var st = scratch(L), N = L.N, rounds = [], log = record ? [] : null, score = 0, ceiling = 0, steps = 0;
-    var techs = { single: 0, confine: 0, squeeze: 0, pigeon: 0, whatif: 0 };
+    var techs = { single: 0, confine: 0, squeeze: 0, pigeon: 0, whatif: 0 }, kinds = [];
     while (st.nStars < N) {
       var ds = findAll(st, opts);
       if (!ds || ds[0].contradiction) {
-        return { solved: false, contradiction: !!ds, rounds: rounds, score: score, ceiling: ceiling, steps: steps, techs: techs,
+        return { solved: false, contradiction: !!ds, rounds: rounds, kinds: kinds, score: score, ceiling: ceiling, steps: steps, techs: techs,
           remaining: st.candCount() + (N - st.nStars), stars: st.nStars, log: log };
       }
       var p = ds[0].price;
       for (var i = 0; i < ds.length; i++) { applyDeduction(st, ds[i]); techs[ds[i].tech]++; }
-      rounds.push(p); score += p; steps += ds.length;
+      rounds.push(p); kinds.push(ds[0].tech); score += p; steps += ds.length;
       if (p > ceiling) ceiling = p;
       if (log) log.push(ds);
     }
     var sol = [];
     for (var j = 0; j < L.G.NN; j++) if (st.isStar(j)) sol.push(j);
-    return { solved: true, rounds: rounds, score: score, ceiling: ceiling, steps: steps, techs: techs, remaining: 0, solution: sol, log: log };
+    return { solved: true, rounds: rounds, kinds: kinds, score: score, ceiling: ceiling, steps: steps, techs: techs, remaining: 0, solution: sol, log: log };
   }
   // How many times a solver must use a step priced `lo` or more, whatever order
   // it solves in (Infinity if the board can't be finished).
@@ -744,7 +748,8 @@
 
   // Simulated annealing over region layouts.
   // opts: { N, seed|rng, iters, T0, T1, maxPrice (steps allowed), full,
-  //         objective(res) -> number, shape (boundary weight), minSize, maxSize,
+  //         objective(res) -> number, shape (boundary weight), minSize, maxSize (hard limits),
+  //         spread (weight of a soft pull toward the average region size),
   //         accept(res, f, L) -> bool (stop early), deadline (ms timestamp), solution, regions }
   function anneal(opts) {
     var N = opts.N || 10, rng = opts.rng || makeRng(opts.seed || ((Math.random() * 4294967296) >>> 0));
@@ -753,6 +758,7 @@
     var steps = { maxPrice: opts.maxPrice != null ? opts.maxPrice : Infinity, full: !!opts.full };
     var objective = opts.objective || function (res) { return res.score; };
     var lamB = opts.shape != null ? opts.shape : 0, minS = opts.minSize || 1, maxS = opts.maxSize || NN;
+    var lamS = opts.spread || 0, mean = NN / N;
     var sol = opts.solution || randomSolution(N, rng);
     var reg = opts.regions ? Int8Array.from(opts.regions) : null;
     if (!reg) {
@@ -776,6 +782,11 @@
       for (var q = 0; q < N; q++) { if (size[q] < minS) p += minS - size[q]; if (size[q] > maxS) p += size[q] - maxS; }
       return p;
     }
+    function spreadPen() {
+      var p = 0;
+      for (var q = 0; q < N; q++) { var d = size[q] - mean; p += d * d; }
+      return p;
+    }
     var L = new Layout(N);
     var buf = { seen: new Int32Array(NN), q: new Int32Array(NN), stamp: 0 };
     var evals = 0;
@@ -783,7 +794,7 @@
       L.set(reg); evals++;
       var res = route(L, steps, false);
       var f = res.solved ? objective(res) : -10 - res.remaining * 0.6;
-      f -= lamB * boundary + 25 * sizePen();
+      f -= lamB * boundary + 25 * sizePen() + (lamS ? lamS * spreadPen() : 0);
       return { f: f, res: res, ok: res.solved && sizePen() === 0 };
     }
     var cur = evaluate(), best = null, bestF = -Infinity;
@@ -832,6 +843,24 @@
     Expert: { maxPrice: IN_GAME, target: 100, lo: 70, iters: 400000, T0: 12, T1: 0.3,
               extra: function (r) { return r.ceiling >= EXPERT; } }
   };
+  // 8×8 has four tiers too, scaled down. Its Expert must use a count for at least one of its
+  // expert steps, so it is never all what-ifs (big counts barely fit on 8×8, so what-ifs would
+  // otherwise carry it), and regions are pulled toward the average size.
+  var TIERS_8 = {
+    Easy:   { maxPrice: P_CONFINE, target: 2, lo: 1.2, iters: 60000, T0: 2, T1: 0.1, spread: 0.15, minSize: 4, maxSize: 12,
+              extra: function (r) { return r.techs.confine >= 2; } },
+    Medium: { maxPrice: 5, target: 9, lo: 5, iters: 60000, T0: 3, T1: 0.2, spread: 0.15, minSize: 4, maxSize: 12,
+              extra: function (r) { return r.techs.pigeon >= 1 && r.techs.squeeze + r.techs.pigeon >= 3; } },
+    Hard:   { maxPrice: IN_GAME, target: 30, lo: 14, iters: 80000, T0: 5, T1: 0.25, spread: 0.15, minSize: 4, maxSize: 12,
+              extra: function (r) { return r.ceiling >= 8; } },
+    Expert: { maxPrice: IN_GAME, target: 80, lo: 55, iters: 200000, T0: 10, T1: 0.3, spread: 0.15, minSize: 4, maxSize: 12,
+              extra: function (r) { return r.ceiling >= EXPERT && expertCount(r); } }
+  };
+  // An expert round (price EXPERT or more) on the route that was a count
+  function expertCount(r) {
+    for (var i = 0; i < r.rounds.length; i++) if (r.rounds[i] >= EXPERT && r.kinds[i] === 'pigeon') return true;
+    return false;
+  }
   // Small boards (6×6) get their own targets: everything scales down, and they top out at
   // Hard, which there means "needs counts or short what-ifs".
   var TIERS_SMALL = {
@@ -842,8 +871,9 @@
     Hard:   { maxPrice: 14, target: 20, lo: 8, iters: 50000, T0: 6, T1: 0.3,
               extra: function (r) { return r.ceiling > 5; } }
   };
-  function small(n) { return !!n && n < 9; }
-  function tiersFor(n) { return small(n) ? TIERS_SMALL : TIERS; }
+  // Boards under 8×8 top out at Hard; 8×8 has its own four tiers; 9×9 and up use the 10×10 ones
+  function small(n) { return !!n && n < 8; }
+  function tiersFor(n) { return small(n) ? TIERS_SMALL : n < 9 ? TIERS_8 : TIERS; }
   // Does a solved route (made with the game's steps on layout L) belong to this tier?
   function tierAccepts(name, res, L, n) {
     n = n || (L && L.N) || 10;
@@ -865,7 +895,8 @@
     while (Date.now() < deadline) {
       var best = anneal({
         N: N, rng: rng, iters: T.iters, T0: T.T0, T1: T.T1, maxPrice: T.maxPrice,
-        minSize: N >= 9 ? 4 : 3, maxSize: small(N) ? Math.round(N * 1.9) : Math.round(N * N * 0.18), shape: 0.7, deadline: deadline,
+        minSize: T.minSize || (N >= 9 ? 4 : 3), maxSize: T.maxSize || (small(N) ? Math.round(N * 1.9) : Math.round(N * N * 0.18)),
+        spread: T.spread || 0, shape: 0.7, deadline: deadline,
         objective: T.maximize ? null : function (res) { return 100 - Math.abs(res.score - T.target); },
         accept: T.maximize ? null : function (res, f, L) { return tierAccepts(name, res, L, N); }
       });
@@ -947,6 +978,6 @@
     analyse: analyse, stateFrom: stateFrom, maskCells: maskCells, bits: bits,
     GAME: GAME, FULL: FULL, PRICES: { single: P_SINGLE, confine: P_CONFINE, squeeze: P_SQUEEZE, count: COUNT,
       edge: EDGE, spread: SPREAD, cross: CROSS, whatIf: WHATIF, inGame: IN_GAME, pair: PAIR, expert: EXPERT },
-    TIERS: TIERS, TIERS_SMALL: TIERS_SMALL, generate: generate, tierAccepts: tierAccepts
+    TIERS: TIERS, TIERS_8: TIERS_8, TIERS_SMALL: TIERS_SMALL, generate: generate, tierAccepts: tierAccepts
   };
 });

@@ -9,7 +9,8 @@ Open **[asterliee.github.io/play](https://asterliee.github.io/play/)** in any mo
 ## Modes
 
 - 10×10: Easy, Medium, Hard and Expert
-- 6×6: Easy, Medium and Hard, for a quicker game
+- 8×8: Easy, Medium, Hard and Expert, for a shorter game
+- 6×6: Easy, Medium and Hard, for a quick game
 - Daily puzzle, the same for everyone each day
 - Ink mode: stars and dots are both permanent. A wrong star ends the puzzle, and so does a dot on a star once its row, column or region runs out of room. Dots aren't checked as you place them.
 

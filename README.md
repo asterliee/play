@@ -24,3 +24,13 @@ Open **[asterliee.github.io/play](https://asterliee.github.io/play/)** in any mo
 | Star in Ink mode | Tap twice (tap the new dot again) |
 
 Keyboard: Ctrl+Z / ⌘Z undo, Ctrl+Y / ⇧⌘Z redo, H hint, Esc close.
+
+## Code
+
+| File | What it is |
+|---|---|
+| `index.html` | The game: interface, hints, lesson and the built-in puzzle bank |
+| `engine.js` | The puzzle engine: solver, grading and generator. Runs in the page, in the Web Worker that makes new puzzles in the background, and in Node (`require('./engine.js')`) |
+| `sw.js` | Offline support |
+
+When you change `engine.js`, bump the `?v=` on its script tag in `index.html`. Installed copies then update the page and its engine together.

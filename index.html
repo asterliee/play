@@ -372,8 +372,14 @@ svg { display: block; }
 .ms svg { width: 36px; height: 36px; flex: none; }
 .ms b { display: block; font-size: 14px; }
 .ms span { display: block; font-size: 12px; color: var(--ink-2); line-height: 1.25; }
-.ms.locked { opacity: .5; }
-.ms.locked svg { filter: grayscale(1); opacity: .6; }
+.ms.locked > svg { filter: grayscale(1); opacity: .45; }
+.ms.locked > div { opacity: .62; }
+.ms-sec { font-size: 12.5px; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-2); font-weight: 600; margin: 16px 2px 8px; }
+.card-h + .ms-sec { margin-top: 4px; }
+.ms em.ms-p { display: flex; align-items: center; gap: 6px; font-style: normal; font-size: 11.5px; color: var(--ink-2); margin-top: 5px; }
+.ms-bar { display: block; flex: 0 1 56px; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+.ms-bar i { display: block; height: 100%; background: var(--gold); border-radius: 2px; }
+.ms-n { font-style: normal; white-space: nowrap; }
 .recent .li { min-height: 50px; }
 .recent .when { font-size: 12.5px; color: var(--ink-3); }
 
@@ -617,7 +623,7 @@ if (!E) {   // engine.js did not load: offline, and this version was never saved
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.2.0';   // when engine.js changes, also bump the ?v= on its script tag
+var APP_VERSION = '3.3.0';   // when engine.js changes, also bump the ?v= on its script tag
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 8×8 is a shorter game with the same four tiers;
 // 6×6 is a quick game that tops out at Hard.
@@ -2061,20 +2067,107 @@ function streakInfo(st) {
   if (d0 !== null) for (var d = d0; set[d]; d--) cur++;
   return { current: cur, best: best, today: !!set[today] };
 }
+// ---------------------------------------------------------------- milestones
+// Every milestone is worked out from the stats, so the same check runs after each solve and when
+// the app opens (which is how past games earn milestones added later). Each is a count toward a
+// goal (count, need) or, for speed, a best time without hints under a limit (best, limit in
+// seconds). Unlabelled tiers mean 10×10.
+var MS_GROUPS = ['Getting started', 'Speed', 'Mastery', 'Long haul'];
 var MILESTONES = [
-  { id: 'first', name: 'First light', desc: 'Solve your first puzzle', glyph: 'spark' },
-  { id: 'daily', name: 'Daybreak', desc: 'Solve a daily puzzle', glyph: 'sun' },
-  { id: 'clear', name: 'Clear sky', desc: 'Solve with no hints and no stars taken back', glyph: 'check' },
-  { id: 'ink', name: 'Steady hand', desc: 'Solve a puzzle in Ink mode', glyph: 'nib' },
-  { id: 'ten', name: 'Constellation', desc: 'Solve 10 puzzles', glyph: 'const' },
-  { id: 'expert', name: 'Deep sky', desc: 'Solve an Expert puzzle', glyph: 'moon' },
-  { id: 'week', name: 'Seven days', desc: 'Solve a puzzle 7 days in a row', glyph: 'cal' },
-  { id: 'owl', name: 'Night owl', desc: 'Solve a puzzle after 10 pm', glyph: 'owl' },
-  { id: 'swift', name: 'Swift', desc: 'Solve a Hard puzzle in under 4 minutes', glyph: 'bolt' },
-  { id: 'north', name: 'North star', desc: 'Clear sky on an Expert puzzle in Ink mode', glyph: 'north' }
+  { id: 'first', g: 0, name: 'First light', desc: 'Solve your first puzzle', glyph: 'spark', need: 1, count: function (s) { return s.total; } },
+  { id: 'daily', g: 0, name: 'Daybreak', desc: 'Solve a daily puzzle', glyph: 'sun', need: 1, count: function (s) { return s.dailies; } },
+  { id: 'clear', g: 0, name: 'Clear sky', desc: 'Solve with no hints and no stars taken back', glyph: 'check', need: 1, count: function (s) { return s.clears; } },
+  { id: 'ink', g: 0, name: 'Steady hand', desc: 'Solve a puzzle in Ink mode', glyph: 'nib', need: 1, count: function (s) { return s.inks; } },
+  { id: 'ten', g: 0, name: 'Constellation', desc: 'Solve 10 puzzles', glyph: 'const', need: 10, count: function (s) { return s.total; } },
+  { id: 'expert', g: 0, name: 'Deep sky', desc: 'Solve an Expert puzzle', glyph: 'moon', need: 1, count: function (s) { return s.x.expert; } },
+  { id: 'week', g: 0, name: 'Seven days', desc: 'Solve a puzzle 7 days in a row', glyph: 'cal', need: 7, count: function (s) { return s.streak; } },
+  { id: 'owl', g: 0, name: 'Night owl', desc: 'Solve a puzzle after 10 pm', glyph: 'owl', need: 1, count: function (s) { return s.x.owl; } },
+  { id: 'quick', g: 1, name: 'Quicksilver', desc: 'Medium in under 1:30, no hints', glyph: 'watch', best: 'Medium', limit: 90 },
+  { id: 'swift', g: 1, name: 'Swift', desc: 'Hard in under 4 minutes, no hints', glyph: 'bolt', best: 'Hard', limit: 240 },
+  { id: 'comet', g: 1, name: 'Comet', desc: 'Expert in under 4 minutes, no hints', glyph: 'comet', best: 'Expert', limit: 240 },
+  { id: 'meteor', g: 1, name: 'Meteor', desc: '8×8 Expert in under 2 minutes, no hints', glyph: 'meteor', best: '8:Expert', limit: 120 },
+  { id: 'pure', g: 2, name: 'Pure logic', desc: 'Clear sky on an Expert puzzle', glyph: 'gem', need: 1, count: function (s) { return s.x.expertClear; } },
+  { id: 'perfect', g: 2, name: 'Perfect week', desc: 'Clear sky on the daily 7 days in a row', glyph: 'calcheck', need: 7, count: function (s) { return s.clearRun; } },
+  { id: 'starlight', g: 2, name: 'Starlight', desc: 'Clear sky on 25 Expert puzzles', glyph: 'sparkles', need: 25, count: function (s) { return s.x.expertClear; } },
+  { id: 'north', g: 2, name: 'North star', desc: 'Clear sky on an Expert puzzle in Ink mode', glyph: 'north', need: 1, count: function (s) { return s.x.north; } },
+  { id: 'nova', g: 2, name: 'Supernova', desc: 'Expert in Ink, Clear sky, under 6 minutes', glyph: 'nova', need: 1, count: function (s) { return s.x.nova; } },
+  { id: 'galaxy', g: 3, name: 'Galaxy', desc: 'Solve 100 puzzles', glyph: 'galaxy', need: 100, count: function (s) { return s.total; } },
+  { id: 'cosmos', g: 3, name: 'Cosmos', desc: 'Solve 500 puzzles', glyph: 'planet', need: 500, count: function (s) { return s.total; } },
+  { id: 'deep', g: 3, name: 'Deep field', desc: 'Solve 50 Expert puzzles', glyph: 'moonstars', need: 50, count: function (s) { return s.x.expert; } },
+  { id: 'lunar', g: 3, name: 'Lunar month', desc: 'Solve a puzzle 30 days in a row', glyph: 'cal30', need: 30, count: function (s) { return s.streak; } },
+  { id: 'orbit', g: 3, name: 'Orbit', desc: 'Solve a puzzle 100 days in a row', glyph: 'orbit', need: 100, count: function (s) { return s.streak; } },
+  { id: 'almanac', g: 3, name: 'Almanac', desc: 'Solve the daily 30 days in a row', glyph: 'book', need: 30, count: function (s) { return s.dailyRun; } },
+  { id: 'indelible', g: 3, name: 'Indelible', desc: 'Solve 10 Expert puzzles in Ink mode', glyph: 'inkwell', need: 10, count: function (s) { return s.x.inkExpert; } },
+  { id: 'fullsky', g: 3, name: 'Full sky', desc: 'Solve every size and level', glyph: 'grid', need: function () { return sizeTiers().length; }, count: function (s) { return s.combos; } }
 ];
+// Every size and level, as stats keys ('Easy' … '8:Expert' … '6:Hard')
+function sizeTiers() { var out = []; SIZES.forEach(function (n) { tiersFor(n).forEach(function (t) { out.push(qKey(t, n)); }); }); return out; }
+function msNeed(m) { return typeof m.need === 'function' ? m.need() : m.need; }
+function msDone(m, s) {
+  if (m.best) { var t = s.x.fast[m.best]; return t > 0 && t < m.limit * 1000; }
+  return m.count(s) >= msNeed(m);
+}
+// The longest run of consecutive days among 'YYYY-MM-DD' keys
+function longestRun(keys) {
+  var days = keys.map(normKey).filter(Boolean).map(keyToNum).sort(function (a, b) { return a - b; });
+  var best = 0, run = 0, prev = null;
+  days.forEach(function (d) { if (d === prev) return; run = prev !== null && d === prev + 1 ? run + 1 : 1; prev = d; if (run > best) best = run; });
+  return best;
+}
+// Tallies kept for milestones (st.x). The first time, they are filled in from the per-level
+// counts and the recent history, so past games count.
+function ensureTallies(st) {
+  if (st.x) return st.x;
+  var x = { expert: 0, expertClear: 0, inkExpert: 0, north: 0, nova: 0, owl: 0, fast: {}, dailyClear: {} };
+  ['Expert', '8:Expert'].forEach(function (k) { if (st[k]) { x.expert += st[k].solved || 0; x.expertClear += st[k].flawless || 0; } });
+  (st.history || []).forEach(function (h) {
+    var hr = new Date(h.d).getHours();
+    if (h.t === 'Expert') {
+      if (h.y) { x.expert++; if (h.f) x.expertClear++; }   // daily Experts are only in the history
+      if (h.i) { x.inkExpert++; if (h.f) { x.north++; if (!h.n && h.ms < 360000) x.nova++; } }
+    }
+    if (hr >= 22 || hr < 4) x.owl++;
+    if (h.h === 0) { var k = qKey(h.t, h.n || 10); if (!x.fast[k] || h.ms < x.fast[k]) x.fast[k] = h.ms; }
+    if (h.y && h.f) x.dailyClear[dayKey(new Date(h.d))] = 1;
+  });
+  return (st.x = x);
+}
+// Everything the milestones look at
+function msSummary(st) {
+  var x = ensureTallies(st), dailies = Object.keys(st.dailyDone || {});
+  return {
+    x: x, total: totalSolved(st), dailies: dailies.length, inks: st.inkSolved || 0,
+    clears: STAT_KEYS.reduce(function (a, k) { return a + ((st[k] && st[k].flawless) || 0); }, 0),
+    streak: streakInfo(st).best, dailyRun: longestRun(dailies), clearRun: longestRun(Object.keys(x.dailyClear)),
+    combos: sizeTiers().filter(function (k) { return st[k] && st[k].solved; }).length
+  };
+}
+// Stamp every milestone the stats now earn; returns the new ones
+function awardMilestones(st) {
+  var s = msSummary(st), got = [];
+  st.ms = st.ms || {};
+  MILESTONES.forEach(function (m) { if (!st.ms[m.id] && msDone(m, s)) { st.ms[m.id] = Date.now(); got.push(m); } });
+  return got;
+}
+// When the app opens: milestones that past games already earn (for instance ones added in an update)
+function awardPastMilestones() {
+  var st = loadStats();
+  if (!totalSolved(st)) return;
+  var fresh = !st.x, got = awardMilestones(st);
+  if (got.length || fresh) store.set(K.stats, st);
+  if (got.length) toast(got.length === 1 ? 'Milestone earned from past games: ' + got[0].name : got.length + ' milestones earned from past games. See Stats.', 4000);
+}
+// A short progress line for a locked milestone
+function msProgress(m, s) {
+  if (m.best) { var t = s.x.fast[m.best]; return t ? '<em class="ms-p">Best without hints ' + fmtTime(t) + '</em>' : ''; }
+  var need = msNeed(m);
+  if (need <= 1) return '';
+  var have = Math.min(m.count(s), need);
+  return '<em class="ms-p"><i class="ms-bar"><i style="width:' + Math.round(have / need * 100) + '%"></i></i><i class="ms-n">' + have + ' of ' + need + '</i></em>';
+}
 function recordStats() {
   var st = loadStats(), t = game.daily ? 'Daily' : qKey(game.tier, N), flawless = !game.hints && !game.retracted;   // "Clear sky": no hints, no star ever taken back
+  var x = ensureTallies(st);   // before this solve is counted, so it isn't counted twice
   var b = st[t] || { solved: 0, best: 0, total: 0, flawless: 0 }, prevBest = b.best;
   b.solved++; b.total += game.elapsed;
   if (!b.best || game.elapsed < b.best) b.best = game.elapsed;
@@ -2089,18 +2182,19 @@ function recordStats() {
   st.history.push(he);
   if (st.history.length > 400) st.history = st.history.slice(-400);
   st.totalTime = (st.totalTime || 0) + game.elapsed;
-  // milestones
-  st.ms = st.ms || {};
-  var hr = new Date().getHours(), sk = streakInfo(st), unlocked = [];
-  var tests = {
-    first: true, daily: !!game.daily || Object.keys(st.dailyDone || {}).length > 0, clear: flawless, ink: !!game.ink,
-    ten: totalSolved(st) >= 10, expert: game.tier === 'Expert' || ((st.Expert && st.Expert.solved) > 0), week: sk.best >= 7,
-    owl: hr >= 22 || hr < 4, swift: game.tier === 'Hard' && N === 10 && !game.daily && game.elapsed < 240000,
-    north: game.tier === 'Expert' && game.ink && flawless
-  };
-  MILESTONES.forEach(function (m) { if (!st.ms[m.id] && tests[m.id]) { st.ms[m.id] = Date.now(); unlocked.push(m); } });
+  // milestone tallies
+  var hr = new Date().getHours();
+  if (game.tier === 'Expert') {
+    x.expert++;
+    if (flawless) x.expertClear++;
+    if (game.ink) { x.inkExpert++; if (flawless) { x.north++; if (N === 10 && game.elapsed < 360000) x.nova++; } }
+  }
+  if (hr >= 22 || hr < 4) x.owl++;
+  if (!game.hints) { var fk = qKey(game.tier, N); if (!x.fast[fk] || game.elapsed < x.fast[fk]) x.fast[fk] = Math.round(game.elapsed); }
+  if (game.daily && flawless) x.dailyClear[game.daily] = 1;
+  var unlocked = awardMilestones(st);
   store.set(K.stats, st);
-  return { newBest: !!prevBest && game.elapsed < prevBest, best: b.best, streak: sk.current, unlocked: unlocked, flawless: flawless };
+  return { newBest: !!prevBest && game.elapsed < prevBest, best: b.best, streak: streakInfo(st).current, unlocked: unlocked, flawless: flawless };
 }
 
 /* ---------------------------------------------------------------- hints */
@@ -2504,7 +2598,9 @@ function showSolvedSheet(r) {
   if (r.flawless) badges += '<span class="badge sage">' + I.spark + 'Clear sky</span>';
   if (game.ink) badges += '<span class="badge ink">' + I.nib + 'Inked</span>';
   if (game.daily) badges += '<span class="badge gold">' + I.sun + 'Daily</span>';
-  var unlock = (r.unlocked || []).map(function (m) { return '<div class="unlock">' + medal(m, true) + '<div><b>New milestone: ' + esc(m.name) + '</b><span>' + esc(m.desc) + '</span></div></div>'; }).join('');
+  var ul = r.unlocked || [];
+  var unlock = ul.slice(0, 3).map(function (m) { return '<div class="unlock">' + medal(m, true) + '<div><b>New milestone: ' + esc(m.name) + '</b><span>' + esc(W(m.desc)) + '</span></div></div>'; }).join('') +
+    (ul.length > 3 ? '<p class="lead center" style="margin:2px 0 12px">and ' + (ul.length - 3) + ' more in Stats</p>' : '');
   openSheet('<div class="center">' + solvedArt() + '<h2>Solved</h2><p class="lead" style="margin-bottom:4px">' + gameLabel(game) + ' · ' + fmtTime(game.elapsed) + (game.ink ? ' · in Ink' : '') + '</p><div class="badges">' + badges + '</div></div>' +
     '<div class="facts"><div class="fact"><b>' + fmtTime(game.elapsed) + '</b><span>' + (r.newBest ? '<span class="new-best">New best</span>' : 'Time') + '</span></div><div class="fact"><b>' + fmtTime(r.best) + '</b><span>Best ' + (game.daily ? 'daily' : game.tier) + '</span></div><div class="fact"><b>' + r.streak + '</b><span>Day streak</span></div></div>' +
     unlock + '<button class="btn btn-primary" id="s-next">' + I.play + 'Next puzzle</button><button class="btn btn-soft" id="s-home">Home</button>', function (b) {
@@ -2654,7 +2750,22 @@ function medal(m, on) {
     cal: '<g transform="translate(8 8)">' + I.cal.replace(/<\/?svg[^>]*>/g, '') + '</g><text x="20" y="27.5" font-size="8.5" text-anchor="middle" fill="currentColor" font-weight="700" font-family="-apple-system,system-ui">7</text>',
     owl: '<circle cx="15.5" cy="19" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="24.5" cy="19" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M20 21.5l-1.4 2.2h2.8z" fill="currentColor"/><path d="M11.5 14.5 14 11l2 3M28.5 14.5 26 11l-2 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
     bolt: '<g transform="translate(8 8)">' + I.bolt.replace(/<\/?svg[^>]*>/g, '') + '</g>',
-    north: '<path d="M20 8.5 22.6 17.4 31.5 20 22.6 22.6 20 31.5 17.4 22.6 8.5 20 17.4 17.4Z" fill="currentColor"/>'
+    north: '<path d="M20 8.5 22.6 17.4 31.5 20 22.6 22.6 20 31.5 17.4 22.6 8.5 20 17.4 17.4Z" fill="currentColor"/>',
+    watch: '<circle cx="20" cy="21.5" r="8.5"/><path d="M20 21.5v-4.6M20 21.5l3.2 2M17.4 10.4h5.2M20 10.4v2.6" stroke-linecap="round"/>',
+    comet: '<circle cx="25.5" cy="14.5" r="3.6" fill="currentColor" stroke="none"/><path d="M22.8 17.2 11.5 28.5M21 14.4l-7.2 7.2M25.6 18.9l-7.2 7.2" stroke-linecap="round"/>',
+    meteor: '<circle cx="15.5" cy="24.5" r="4.4" fill="currentColor" stroke="none"/><path d="M19.2 20.8 28.8 11.2M17.4 18.4l5.6-5.6M21.6 22.6l5.6-5.6" stroke-linecap="round"/>',
+    gem: '<path d="M12 16.8 16.6 11.2h6.8l4.6 5.6L20 28.8ZM12 16.8h16M16.6 11.2 20 16.8l3.4-5.6M20 16.8v12" stroke-linejoin="round"/>',
+    calcheck: '<g transform="translate(8 8)">' + I.cal.replace(/<\/?svg[^>]*>/g, '') + '</g><path d="m16.3 24.2 2.6 2.6 4.8-4.8" stroke-linecap="round" stroke-linejoin="round"/>',
+    sparkles: '<path d="' + SPARK24 + '" transform="translate(7.5 7.5) scale(.62)" fill="currentColor"/><path d="' + SPARK24 + '" transform="translate(20 9.5) scale(.42)" fill="currentColor"/><path d="' + SPARK24 + '" transform="translate(18.5 21) scale(.5)" fill="currentColor"/>',
+    nova: '<path d="M20 12.5 21.9 18.1 27.5 20 21.9 21.9 20 27.5 18.1 21.9 12.5 20 18.1 18.1Z" fill="currentColor" stroke="none"/><path d="M20 7v3M20 30v3M7 20h3M30 20h3M10.8 10.8l2.1 2.1M27.1 27.1l2.1 2.1M29.2 10.8l-2.1 2.1M12.9 27.1l-2.1 2.1" stroke-linecap="round"/>',
+    galaxy: '<path d="M20 20a2.2 2.2 0 0 1 4.4 0 4.4 4.4 0 0 1-8.8 0 6.6 6.6 0 0 1 13.2 0 8.8 8.8 0 0 1-17.6 0" stroke-linecap="round"/>',
+    planet: '<circle cx="20" cy="20" r="6.2"/><ellipse cx="20" cy="20" rx="12.5" ry="4.2" transform="rotate(-22 20 20)"/>',
+    moonstars: '<g transform="translate(6.5 9.5) scale(.82)">' + I.moon.replace(/<\/?svg[^>]*>/g, '') + '</g><circle cx="28" cy="12.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="31" cy="19" r="1.1" fill="currentColor" stroke="none"/><circle cx="25.2" cy="8.6" r=".9" fill="currentColor" stroke="none"/>',
+    cal30: '<g transform="translate(8 8)">' + I.cal.replace(/<\/?svg[^>]*>/g, '') + '</g><text x="20" y="27.3" font-size="7.6" text-anchor="middle" fill="currentColor" stroke="none" font-weight="800" font-family="-apple-system,system-ui">30</text>',
+    orbit: '<ellipse cx="20" cy="20" rx="13" ry="6" transform="rotate(-25 20 20)"/><circle cx="20" cy="20" r="3.2" fill="currentColor" stroke="none"/><circle cx="31.8" cy="14.5" r="2.2" fill="currentColor" stroke="none"/>',
+    book: '<path d="M20 13.2c-2.6-1.7-5.6-2.2-8.6-1.9v14.6c3-.3 6 .2 8.6 1.9 2.6-1.7 5.6-2.2 8.6-1.9V11.3c-3-.3-6 .2-8.6 1.9zM20 13.2v14.6" stroke-linejoin="round"/>',
+    inkwell: '<path d="M13.5 19.5h13v8.5a2.5 2.5 0 0 1-2.5 2.5h-8a2.5 2.5 0 0 1-2.5-2.5zM16.5 19.5v-3h7v3" stroke-linejoin="round"/><path d="M24.5 9.5 19.5 17" stroke-linecap="round"/>',
+    grid: '<rect x="11.5" y="11.5" width="17" height="17" rx="3"/><path d="M17.2 11.5v17M22.8 11.5v17M11.5 17.2h17M11.5 22.8h17"/>'
   }[m.glyph] || '';
   return '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18.5" fill="' + (on ? 'var(--gold-soft)' : 'var(--surface-3)') + '" stroke="' + (on ? 'var(--gold)' : 'var(--line-2)') + '" stroke-width="1.6"/>' +
     '<g style="color:' + (on ? 'var(--gold-deep)' : 'var(--ink-3)') + '" fill="none" stroke="currentColor" stroke-width="1.8">' + glyph + '</g></svg>';
@@ -2710,9 +2821,14 @@ function renderStats() {
   var inkS = st.inkSolved || 0, inkF = st.inkFailed || 0, att = inkS + inkF;
   html += '<div class="card"><div class="card-h"><h2>Ink mode</h2></div><div class="kv"><div><b>' + inkS + '</b><span>Solved</span></div><div><b>' + att + '</b><span>Attempts</span></div><div><b>' + (att ? Math.round(inkS / att * 100) + '%' : '–') + '</b><span>Success</span></div></div></div>';
   // milestones
-  var ms = st.ms || {}, got = MILESTONES.filter(function (x) { return ms[x.id]; }).length;
-  html += '<div class="card"><div class="card-h"><h2>Milestones</h2><span class="aside">' + got + ' of ' + MILESTONES.length + '</span></div><div class="ms-grid">' +
-    MILESTONES.map(function (x) { return '<div class="ms' + (ms[x.id] ? '' : ' locked') + '">' + medal(x, !!ms[x.id]) + '<div><b>' + x.name + '</b><span>' + x.desc + '</span></div></div>'; }).join('') + '</div></div>';
+  var ms = st.ms || {}, msum = msSummary(st), got = MILESTONES.filter(function (x) { return ms[x.id]; }).length;
+  html += '<div class="card"><div class="card-h"><h2>Milestones</h2><span class="aside">' + got + ' of ' + MILESTONES.length + '</span></div>' +
+    MS_GROUPS.map(function (name, gi) {
+      return '<h3 class="ms-sec">' + name + '</h3><div class="ms-grid">' + MILESTONES.filter(function (x) { return x.g === gi; }).map(function (x) {
+        var on = !!ms[x.id];
+        return '<div class="ms' + (on ? '' : ' locked') + '">' + medal(x, on) + '<div><b>' + x.name + '</b><span>' + W(x.desc) + '</span>' + (on ? '' : msProgress(x, msum)) + '</div></div>';
+      }).join('') + '</div>';
+    }).join('') + '</div>';
   // recent
   var rec = hist.slice(-6).reverse();
   html += '<div class="card recent"><div class="card-h"><h2>Recent</h2></div>' + (rec.length ? '<div class="list" style="box-shadow:none;background:var(--surface-2)">' + rec.map(function (h) {
@@ -3189,6 +3305,7 @@ function init() {
   startWorker();
   genKick(1500);
   if (/^#b=/.test(location.hash)) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { } }   // old share links just open the app
+  awardPastMilestones();
   if (!seen.welcome) {
     DEV_NOTES.forEach(function (note) { markSeen(note.id); });   // news is for returning players: everything is new to a first-timer
     showWelcome();

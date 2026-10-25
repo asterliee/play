@@ -660,7 +660,7 @@ if (!E) {   // engine.js did not load: offline, and this version was never saved
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.5.1';   // when engine.js changes, also bump the ?v= on its script tag
+var APP_VERSION = '3.5.2';   // when engine.js changes, also bump the ?v= on its script tag
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 8×8 is a shorter game with the same four tiers;
 // 6×6 is a quick game that tops out at Hard.
@@ -3192,7 +3192,7 @@ function lessonTap(ev) {
    solve that sets its level. */
 var explainOpen = false, XS = null, X_TIER = 'Medium', X_N = 6;
 var X_TECH = { single: 'Last cell', confine: 'Locked line', squeeze: 'Squeeze', whatif: 'What-if' };
-var X_SCENES = [xIntro, xAnswer, xGrow, xNudge, xSolve, xLevel];
+var X_SCENES = [xIntro, xAnswer, xGrow, xCheck, xNudgeOne, xKeep, xMany, xStopWhy, xSolve, xLevel];
 function xTechName(d) { return d.tech === 'pigeon' ? (d.k === 2 ? 'Pair count' : d.k === 3 ? 'Triple count' : 'Big count') : X_TECH[d.tech]; }
 function xNum(v) { return String(Math.round(v * 10) / 10); }
 function xLater(fn, ms) { XS.timers.push(setTimeout(function () { if (XS) fn(); }, ms)); }
@@ -3202,22 +3202,60 @@ function xMarks(stars) { var m = new Uint8Array(X_N * X_N); stars.forEach(functi
 
 // Make a puzzle with the game's own generator, keeping every layout its run passes through
 function xMake(tier) {
-  var frames = [];
+  var frames = [], runs = 0;
   var b = E.generate(tier, { N: X_N, deadline: Date.now() + 4000, trace: function (kind, reg, res, cell, evals) {
-    if (kind === 'start') frames = [];
-    frames.push({ reg: Int8Array.from(reg), solved: res.solved, score: res.score, evals: evals, kept: frames.length });
+    if (kind === 'start') { frames = []; runs++; }
+    frames.push({ reg: Int8Array.from(reg), solved: res.solved, score: res.score, cell: cell, evals: evals, kept: frames.length });
   } });
   if (!b) return null;
   var last = frames[frames.length - 1];
   if (!last || last.reg.join('') !== b.regions.join(''))   // the board is always the run's last layout; this is only a safeguard
-    frames.push({ reg: Int8Array.from(b.regions), solved: true, score: b.score, evals: last ? last.evals : 1, kept: frames.length });
+    frames.push({ reg: Int8Array.from(b.regions), solved: true, score: b.score, cell: -1, evals: last ? last.evals : 1, kept: frames.length });
+  var T = E.TIERS_SMALL[tier], top = T.target * 1.5;
+  frames.forEach(function (f) { if (f.solved && f.score > top) top = f.score; });
   var reg = Int8Array.from(b.regions), L = new E.Layout(X_N).set(reg), steps = [];
   E.route(L, E.GAME, true).log.forEach(function (round) { round.forEach(function (d) { steps.push(d); }); });
   return {
-    tier: tier, reg: reg, L: L, frames: frames, steps: steps, grade: E.analyse(reg, X_N).grade,
+    tier: tier, reg: reg, L: L, frames: frames, steps: steps, grade: E.analyse(reg, X_N).grade, runs: runs, top: top,
     sol: b.solution.map(function (c, r) { return r * X_N + c; }),
-    colors: assignColors(reg, X_N, (Math.random() * 4294967296) >>> 0)
+    colors: assignColors(reg, X_N, (Math.random() * 4294967296) >>> 0),
+    // the first check: the grown layout solved with this level's steps, as the generator checks it
+    check: E.route(new E.Layout(X_N).set(frames[0].reg), { maxPrice: T.maxPrice }, true)
   };
+}
+// What the solver knows, as board marks: its stars, and dots on the cells it has ruled out
+function xMarksOf(st) {
+  var m = new Uint8Array(X_N * X_N);
+  for (var i = 0; i < X_N * X_N; i++) m[i] = st.isStar(i) ? STAR : st.isCand(i) ? EMPTY : AUTO;
+  return m;
+}
+// A random order for the cells to join their regions, each next to a cell its region already has
+function xGrowOrder(reg, stars) {
+  var nei4 = E.geometry(X_N).nei4, has = new Uint8Array(X_N * X_N), order = [];
+  stars.forEach(function (c) { has[c] = 1; });
+  for (;;) {
+    var edge = [];
+    for (var i = 0; i < X_N * X_N; i++) if (!has[i] && nei4[i].some(function (j) { return has[j] && reg[j] === reg[i]; })) edge.push(i);
+    if (!edge.length) return order;
+    var c = edge[(Math.random() * edge.length) | 0];
+    has[c] = 1; order.push(c);
+  }
+}
+// The difficulty meter: the run's score, and the zone where the level's puzzles start
+function xMeter(P) {
+  var zone = (E.TIERS_SMALL[P.tier].lo / P.top * 100).toFixed(1);
+  return '<div class="x-meter"><div class="x-bar" id="x-bar"><span class="x-zone" style="left:' + zone + '%"></span><i></i><span class="x-goal" style="left:' + zone + '%"></span></div>' +
+    '<div class="x-lab"><span id="x-state"></span><span><b>' + P.tier + '</b> zone</span></div></div>';
+}
+function xMeterSet(P, f) {
+  $('#x-bar i').style.width = (f.solved ? Math.min(100, f.score / P.top * 100) : 0).toFixed(1) + '%';
+  $('#x-state').innerHTML = f.solved ? 'Difficulty <b>' + xNum(f.score) + '</b>' : 'Logic gets stuck';
+}
+// Show one layout of the run, glinting the cells that changed since `prev`
+function xFrame(P, f, prev) {
+  xPaint(f.reg);
+  if (prev) for (var i = 0; i < X_N * X_N; i++) if (f.reg[i] !== prev.reg[i]) xGlint(i);
+  xMeterSet(P, f);
 }
 // A soft glint on a cell that just changed region (lighter than the board's own flash)
 function xGlint(i) {
@@ -3352,50 +3390,95 @@ function xAnswer() {
   });
 }
 function xGrow() {
-  var P = XS.puzzle, start = P.frames[0].reg, dist = xDist(start, P.sol, X_N), far = Math.max.apply(null, dist);
-  xPaint(xBlank()); XS.view.redraw(xMarks(P.sol));
-  xCard('<p class="q">2. Grow the regions</p><p class="x">' + W('Then a colour region grows out from each star until every cell belongs to one. Each region holds exactly one star, so the answer still fits.') + '</p>' + xActs());
-  for (var w = 0; w <= far; w++) (function (w) {
-    xLater(function () { xPaint(start.map(function (g, i) { return dist[i] <= w ? g : -1; })); }, 350 + 330 * w);
-  })(w);
+  var P = XS.puzzle, start = P.frames[0].reg, order = xGrowOrder(start, P.sol), part = xBlank();
+  P.sol.forEach(function (c) { part[c] = start[c]; });
+  xPaint(part); XS.view.redraw(xMarks(P.sol));
+  xCard('<p class="q">2. Grow the regions</p><p class="x">' + W('Then a colour region grows out from each star, adding a random neighbouring cell at a time, until every cell belongs to a region. Each region holds exactly one star, so the answer still fits.') + '</p>' + xActs());
+  order.forEach(function (c, k) {
+    xLater(function () { part[c] = start[c]; xPaint(part); xGlint(c); }, 700 + 170 * k);
+  });
 }
-function xNudge() {
-  // the meter: this run's difficulty score, and the zone where the level's puzzles start (score >= lo)
-  var P = XS.puzzle, F = xPickFrames(P.frames, 60), T = E.TIERS_SMALL[P.tier], top = T.target * 1.5, prev = F[0].reg;
-  P.frames.forEach(function (f) { if (f.solved && f.score > top) top = f.score; });
-  var zone = (T.lo / top * 100).toFixed(1);
-  xPaint(prev); XS.view.redraw(xMarks(P.sol));
-  xCard('<p class="q">3. Nudge the borders</p><p class="x">' + W('The first try is rarely right. So the program moves one border cell at a time and solves the puzzle again after each move, keeping changes that move it toward the target difficulty. It stops as soon as logic can finish it and it lands in the ' + P.tier + ' zone.') + '</p>' +
-    '<div class="x-meter"><div class="x-bar" id="x-bar"><span class="x-zone" style="left:' + zone + '%"></span><i></i><span class="x-goal" style="left:' + zone + '%"></span></div>' +
-    '<div class="x-lab"><span id="x-state"></span><span><b>' + P.tier + '</b> zone</span></div></div>' +
+// Step 3: the solver tries the grown layout, without the answer, and usually gets stuck
+function xCheck() {
+  var P = XS.puzzle, v = XS.view, st = new E.State(new E.Layout(X_N).set(P.frames[0].reg)).reset(), log = P.check.log;
+  xPaint(P.frames[0].reg); v.redraw(new Uint8Array(X_N * X_N));
+  xCard('<p class="q">3. Check it</p><p class="x">' + W('Is it a good puzzle yet? To find out, the program solves it with logic alone, the way you would, without peeking at the answer. If logic can place every star, the puzzle has exactly one answer. If logic gets stuck, it isn’t ready.') + '</p>' +
     '<p class="x x-sub" id="x-moves"></p>' + xActs());
-  function show(f, k) {
-    if (k) {
-      xPaint(f.reg);
-      for (var i = 0; i < X_N * X_N; i++) if (f.reg[i] !== prev[i]) xGlint(i);
-      prev = f.reg;
-    }
-    $('#x-bar i').style.width = (f.solved ? Math.min(100, f.score / top * 100) : 0).toFixed(1) + '%';
-    $('#x-state').innerHTML = f.solved ? 'Difficulty <b>' + xNum(f.score) + '</b>' : 'Logic gets stuck';
-    $('#x-moves').textContent = Math.max(0, f.evals - 1) + ' moves tried, ' + f.kept + ' kept';
-  }
-  show(F[0], 0);
-  var gap = clamp(Math.round(6000 / F.length), 70, 220);
-  F.forEach(function (f, k) { if (k) xLater(function () { show(f, k); }, 700 + gap * k); });
+  log.forEach(function (round, k) {
+    xLater(function () {
+      var before = xMarksOf(st), fx = { delay: {}, ripple: {} }, j = 0;
+      round.forEach(function (d) { E.applyDeduction(st, d); });
+      var after = xMarksOf(st);
+      for (var i = 0; i < X_N * X_N; i++) if (after[i] !== before[i]) { fx.delay[i] = 30 * j++; if (after[i] === STAR) fx.bloom = i; else fx.ripple[i] = 1; }
+      v.render(after, fx);
+    }, 700 + 450 * k);
+  });
   xLater(function () {
-    $('#x-moves').textContent = 'Stopped after ' + Math.max(0, F[F.length - 1].evals - 1) + ' moves: logic can finish it, so it has exactly one answer.';
-  }, 1000 + gap * F.length);
+    if (P.check.solved) { $('#x-moves').textContent = 'Here logic places every star, with a difficulty score of ' + xNum(P.check.score) + '. Next, the program tunes it for ' + P.tier + '.'; return; }
+    var open = [];
+    for (var i = 0; i < X_N * X_N; i++) if (st.isCand(i)) open.push(i);
+    v.spotlight(open);
+    $('#x-moves').textContent = 'Logic gets stuck with ' + open.length + ' cells still open. This layout might have more than one answer, or need harder steps than a ' + P.tier + ' allows. It needs work.';
+  }, 1000 + 450 * log.length);
+}
+// Step 4: one move, slowly
+function xNudgeOne() {
+  var P = XS.puzzle, v = XS.view, a = P.frames[0], b = P.frames[1];
+  xPaint(a.reg); v.redraw(xMarks(P.sol));
+  xCard('<p class="q">4. Nudge one cell</p><p class="x">' + W('So the program changes it a little: it moves one cell on the edge of a region into the region next door. A region never loses its star and never splits in two. Then it solves the whole puzzle again.') + '</p>' +
+    xMeter(P) + '<p class="x x-sub" id="x-moves"></p>' + xActs());
+  xMeterSet(P, a);
+  if (!b || b.cell < 0) { $('#x-moves').textContent = 'This time the first layout was already right, so nothing had to move.'; return; }
+  xLater(function () {
+    v.spotlight(null, null, [b.cell]);
+    $('#x-moves').textContent = 'This cell moves from the ' + xName(a.reg[b.cell]) + ' region to the ' + xName(b.reg[b.cell]) + ' one…';
+  }, 800);
+  xLater(function () { v.clearSpot(); xFrame(P, b, a); }, 2800);
+  xLater(function () {
+    $('#x-moves').textContent = '…and the puzzle is solved again: ' + (b.solved ? 'logic now finishes it, difficulty ' + xNum(b.score) + '.' : 'logic still gets stuck.');
+  }, 3600);
+}
+// Step 5: the first few moves, slowly, with the ones undone in between
+function xKeep() {
+  var P = XS.puzzle, F = P.frames.slice(0, Math.min(P.frames.length, 9));
+  xPaint(F[0].reg); XS.view.redraw(xMarks(P.sol));
+  xCard('<p class="q">5. Keep it or undo it</p><p class="x">' + W('After each move it compares. A move is better if logic gets further or, once logic can finish, if the score heads for the ' + P.tier + ' zone. The score adds up the cost of every step the solver needed. Better moves are kept and worse ones are usually undone, though early on it keeps a few worse ones so it doesn’t get stuck in a dead end.') + '</p>' +
+    xMeter(P) + '<p class="x x-sub" id="x-moves"></p>' + xActs());
+  xMeterSet(P, F[0]);
+  for (var k = 1; k < F.length; k++) (function (k) {
+    xLater(function () {
+      var undone = F[k].evals - F[k - 1].evals - 1;
+      xFrame(P, F[k], F[k - 1]);
+      $('#x-moves').textContent = 'Move ' + (F[k].evals - 1) + ' kept' + (undone ? ', after ' + undone + (undone === 1 ? ' move' : ' moves') + ' undone' : '') + '.';
+    }, 900 + 1400 * (k - 1));
+  })(k);
+}
+// Step 6: the whole run, sped up
+function xMany() {
+  var P = XS.puzzle, F = xPickFrames(P.frames, 45), end = F[F.length - 1];
+  xPaint(F[0].reg); XS.view.redraw(xMarks(P.sol));
+  xCard('<p class="q">6. Keep going</p><p class="x">' + W('It repeats this, move after move. Here is this puzzle’s whole run sped up: ' + (end.evals - 1) + ' moves tried, ' + end.kept + ' kept. Watch the score head for the ' + P.tier + ' zone.') + '</p>' +
+    xMeter(P) + '<p class="x x-sub" id="x-moves"></p>' + xActs());
+  function show(k) { xFrame(P, F[k], k ? F[k - 1] : null); $('#x-moves').textContent = (F[k].evals - 1) + ' moves tried, ' + F[k].kept + ' kept'; }
+  show(0);
+  var gap = clamp(Math.round(9000 / F.length), 150, 450);
+  for (var k = 1; k < F.length; k++) (function (k) { xLater(function () { show(k); }, 800 + gap * k); })(k);
+}
+// Step 7: why it stops, why there is one answer, and what happens when a run fails
+function xStopWhy() {
+  var P = XS.puzzle, end = P.frames[P.frames.length - 1];
+  xPaint(P.reg); XS.view.redraw(xMarks(P.sol));
+  xCard('<p class="q">7. Stop at the right level</p><p class="x">' + W('It stops as soon as logic can finish the puzzle and it is the right level: a score in the ' + P.tier + ' zone, using the kinds of steps a ' + P.tier + ' needs. Logic finishing it means every star was forced, so there is exactly one answer. Before you play any puzzle, the game also counts its answers by brute force to double-check.') + '</p>' +
+    xMeter(P) + '<p class="x x-sub">' + W('If a run hasn’t got there after tens of thousands of tries, the program throws it away and starts again with new stars. ' +
+      (P.runs > 1 ? 'This puzzle took ' + P.runs + ' runs.' : 'This one got there on its first run, after ' + (end.evals - 1) + ' moves.')) + '</p>' + xActs());
+  xMeterSet(P, end);
 }
 function xSolve() {
   var P = XS.puzzle, v = XS.view, st = new E.State(P.L).reset(), hard = null;
   xPaint(P.reg); v.redraw(new Uint8Array(X_N * X_N));
-  xCard('<p class="q">4. Solve it like a person</p><p class="x">' + W('Now it solves the puzzle, always taking the easiest step it can find. Each kind of step has a cost: how hard it is for a person to spot.') + '</p>' +
+  xCard('<p class="q">8. Solve it like a person</p><p class="x">' + W('The finished puzzle gets one last full solve, taking the easiest step it can find each time. Each kind of step has a cost, for how hard it is to spot. Added up, they make the score.') + '</p>' +
     '<div class="x-step" id="x-step"></div><p class="x x-sub" id="x-hard"></p>' + xActs());
-  function marksNow() {
-    var m = new Uint8Array(X_N * X_N);
-    for (var i = 0; i < X_N * X_N; i++) m[i] = st.isStar(i) ? STAR : st.isCand(i) ? EMPTY : AUTO;
-    return m;
-  }
+  function marksNow() { return xMarksOf(st); }
   function step(k) {
     while (k < P.steps.length && !xUseful(st, P.steps[k])) k++;
     if (k >= P.steps.length) {
@@ -3423,7 +3506,7 @@ function xLevel() {
   var P = XS.puzzle, hard = null;
   P.steps.forEach(function (d) { if (!hard || d.price > hard.price) hard = d; });
   xPaint(P.reg); XS.view.redraw(xMarks(P.sol));
-  xCard('<p class="q">5. Name the level</p><p class="x">The level comes from the hardest step the solver couldn’t avoid. This puzzle is <b>' + P.grade + '</b>: its hardest step was a ' + xTechName(hard).toLowerCase() + '.</p>' +
+  xCard('<p class="q">9. Name the level</p><p class="x">The level comes from the hardest step the solver couldn’t avoid. This puzzle is <b>' + P.grade + '</b>: its hardest step was a ' + xTechName(hard).toLowerCase() + '.</p>' +
     '<div class="x-levels">' + TIERS.map(function (t) {
       return '<div' + (t === P.grade ? ' class="on"' : '') + '><b>' + t + '</b><span>' + TIER_NOTE[t] + (t === 'Expert' ? ' On 8×8 and 10×10 only.' : '') + '</span></div>';
     }).join('') + '</div>' +

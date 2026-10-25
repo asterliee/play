@@ -14,6 +14,8 @@ Open **[asterliee.github.io/play](https://asterliee.github.io/play/)** in any mo
 - Daily puzzle, the same for everyone each day. It gets harder through the week: Medium Monday to Wednesday, Hard on Thursday and Friday, Expert at the weekend
 - Ink mode: stars and dots are both permanent. A wrong star ends the puzzle, and so does a dot on a star once its row, column or region runs out of room. Dots aren't checked as you place them.
 
+The Learn tab has a guided lesson, the techniques, and **How puzzles are made**: the game builds a real 6×6 puzzle on the spot and shows each stage, from the answer it starts with to the solve that sets its level.
+
 ## Controls
 
 | Action | Input |

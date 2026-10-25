@@ -753,7 +753,9 @@
   // opts: { N, seed|rng, iters, T0, T1, maxPrice (steps allowed), full,
   //         objective(res) -> number, shape (boundary weight), minSize, maxSize (hard limits),
   //         spread (weight of a soft pull toward the average region size),
-  //         accept(res, f, L) -> bool (stop early), deadline (ms timestamp), solution, regions }
+  //         accept(res, f, L) -> bool (stop early), deadline (ms timestamp), solution, regions,
+  //         trace(kind, regions, res, cell, evals): called with 'start' for the first layout and
+  //         'move' for every move kept; regions is the live array, so copy it to keep it }
   function anneal(opts) {
     var N = opts.N || 10, rng = opts.rng || makeRng(opts.seed || ((Math.random() * 4294967296) >>> 0));
     var NN = N * N, G = geometry(N), nei4 = G.nei4;
@@ -800,7 +802,8 @@
       f -= lamB * boundary + 25 * sizePen() + (lamS ? lamS * spreadPen() : 0);
       return { f: f, res: res, ok: res.solved && sizePen() === 0 };
     }
-    var cur = evaluate(), best = null, bestF = -Infinity;
+    var cur = evaluate(), best = null, bestF = -Infinity, trace = opts.trace;
+    if (trace) trace('start', reg, cur.res, -1, evals);
     if (cur.ok) { best = { regions: Int8Array.from(reg), res: cur.res, f: cur.f }; bestF = cur.f; }
     var deadline = opts.deadline || Infinity, it;
     for (it = 0; it < iters; it++) {
@@ -820,6 +823,7 @@
       var nxt = evaluate();
       if (nxt.f >= cur.f || rng() < Math.exp((nxt.f - cur.f) / T)) {
         cur = nxt;
+        if (trace) trace('move', reg, nxt.res, x, evals);
         if (nxt.ok && nxt.f > bestF) {
           bestF = nxt.f; best = { regions: Int8Array.from(reg), res: nxt.res, f: nxt.f, boundary: boundary };
           if (opts.accept && opts.accept(nxt.res, nxt.f, L)) { it++; break; }
@@ -887,8 +891,9 @@
     if (!small(n) && p.ceiling >= EXPERT) p.experts = bottlenecks(L, EXPERT, GAME);
     return gradeOf(p, n) === name;
   }
-  // generate(tierName, {rng|seed, deadline, N}) -> board or null (if the deadline hit first)
+  // generate(tierName, {rng|seed, deadline, N, trace}) -> board or null (if the deadline hit first)
   // board = { regions:Int8Array, solution:[col per row], score, ceiling, grade }
+  // trace is handed to every anneal (see anneal); the last 'start' begins the run that made the board.
   function generate(name, opts) {
     opts = opts || {};
     var N = opts.N || 10, T = tiersFor(N)[name];
@@ -899,7 +904,7 @@
       var best = anneal({
         N: N, rng: rng, iters: T.iters, T0: T.T0, T1: T.T1, maxPrice: T.maxPrice,
         minSize: T.minSize || (N >= 9 ? 4 : 3), maxSize: T.maxSize || (small(N) ? Math.round(N * 1.9) : Math.round(N * N * 0.18)),
-        spread: T.spread || 0, shape: 0.7, deadline: deadline,
+        spread: T.spread || 0, shape: 0.7, deadline: deadline, trace: opts.trace,
         objective: T.maximize ? null : function (res) { return 100 - Math.abs(res.score - T.target); },
         accept: T.maximize ? null : function (res, f, L) { return tierAccepts(name, res, L, N); }
       });

@@ -27,7 +27,10 @@
  *                        one) and follow the moves it forces, a round at a
  *                        time: last cells and locked lines. If a unit runs out
  *                        of room, or two units need the same one, the cell is
- *                        empty. 8, 14, 22, 32 after 0-3 rounds.
+ *                        empty. 13, 14, 22, 32 after 0-3 rounds. Even with no
+ *                        rounds it costs more than a scattered pair (10) or a
+ *                        triple in a band (12), so where one of those counts
+ *                        is open the hint shows the count, not a supposition.
  *    Steps priced above 40 are not in the game: scattered counts of four or
  *    more, scattered rows-against-columns of three or more, what-ifs deeper
  *    than three rounds.
@@ -273,7 +276,7 @@
   var P_SINGLE = 0.1, P_CONFINE = 0.5, P_SQUEEZE = 2;
   var COUNT = [0, 0, 5, 12, 25, 35, 45, 55, 65, 75, 85, 95];   // a count of k units, by k
   var EDGE = 0.8, SPREAD = 2, CROSS = 2;     // a band at an edge, scattered lines, rows against columns
-  var WHATIF = [8, 14, 22, 32, 45, 60, 80];  // a what-if, by rounds of forced moves to the dead end
+  var WHATIF = [13, 14, 22, 32, 45, 60, 80]; // a what-if, by rounds of forced moves to the dead end
   var IN_GAME = 40;                          // steps priced above this are not in the game
   var PAIR = 4, EXPERT = 20;                 // grading lines (see gradeOf)
 

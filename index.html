@@ -660,7 +660,7 @@ if (!E) {   // engine.js did not load: offline, and this version was never saved
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.5.0';   // when engine.js changes, also bump the ?v= on its script tag
+var APP_VERSION = '3.5.1';   // when engine.js changes, also bump the ?v= on its script tag
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 8×8 is a shorter game with the same four tiers;
 // 6×6 is a quick game that tops out at Hard.
@@ -2615,8 +2615,8 @@ function renderPlay() {
     '<div class="tier-note"><span class="pips">' + tl.map(function (t, k) { return '<i class="' + (k <= tl.indexOf(tier) ? 'on' : '') + '"></i>'; }).join('') + '</span><span>' + TIER_NOTE[tier] + '</span></div>' +
     '<div class="mode-row"><span class="ic">' + I.nib + '</span><span class="txt"><b>Ink mode</b><span>' + W('Stars and dots are permanent.') + '</span></span><button class="switch' + (S.ink ? ' on' : '') + '" id="ink-switch" role="switch" aria-checked="' + S.ink + '" aria-label="Ink mode"></button></div>' +
     '<button class="btn btn-primary mt" id="start-btn">' + I.play + 'Start ' + (size !== 10 ? sizeLabel(size) + ' ' : '') + tier + (S.ink ? ' in Ink' : '') + '</button></div>';
-  if (!seen.lesson) html += '<div class="card"><div class="lesson-card"><div class="thumb">' + lessonThumb() + '</div><div><h3>New to the game?</h3><p>Learn the rules with a short guided puzzle.</p></div></div><button class="btn btn-soft mt" id="c-lesson">' + I.book + 'Start lesson</button></div>';
-  else if (!seen.explain && !seen.explainTip) html += explainPromo('x-home', true);   // once the lesson is done: until watched or closed
+  // the lesson lives on the welcome screen and in the Learn tab; here, the show until it's watched or closed
+  if (!seen.explain && !seen.explainTip) html += explainPromo('x-home', true);
   v.innerHTML = html;
   $('#streak-chip').onclick = function () { $('#tabbar [data-tab=stats]').click(); };
   if ($('#c-continue')) $('#c-continue').onclick = continueGame;
@@ -2625,7 +2625,6 @@ function renderPlay() {
   $$('#size-seg button', v).forEach(function (b) { b.onclick = function () { store.set(K.size, +b.dataset.n); renderPlay(); genKick(); }; });
   $('#ink-switch').onclick = function () { S.ink = !S.ink; saveSettings(); renderPlay(); if (S.ink && !seen.inkIntro) showInkIntro(); };
   $('#start-btn').onclick = function () { confirmNew(function () { startNew(); }); };
-  if ($('#c-lesson')) $('#c-lesson').onclick = function () { openLesson(); };
   if ($('#x-home-go')) {
     $('#x-home-go').onclick = function () { openExplain(); };
     $('#x-home-close').onclick = function () { markSeen('explainTip'); $('#x-home').remove(); };

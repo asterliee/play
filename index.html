@@ -156,6 +156,9 @@ svg { display: block; }
 .card-h { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .card-h h2 { font-family: var(--font-display); font-weight: 700; font-size: 21px; margin: 0; flex: 1; letter-spacing: -.35px; }
 .card-h .aside { color: var(--ink-2); font-size: 14px; }
+.dev-note { display: flex; align-items: center; gap: 10px; background: var(--hint-bg); border: 1px solid var(--hint-line); box-shadow: none; padding: 14px 10px 14px 18px; }
+.dev-note .txt { flex: 1; font-size: 16px; line-height: 1.38; }
+.dev-note .icon-btn { width: 38px; height: 38px; background: transparent; box-shadow: none; color: var(--ink-2); }
 .eyebrow { font-size: 12.5px; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-2); font-weight: 600; }
 .muted { color: var(--ink-2); }
 .row-flex { display: flex; align-items: center; gap: 12px; }
@@ -2548,12 +2551,18 @@ function thumbFor(g, withMarks) {
   if (withMarks && g.marks) for (var i = 0; i < n * n; i++) { if (g.marks[i] === '3') stars.push(i); else if (g.marks[i] !== '0') dots.push(i); }
   return miniBoard(n, reg, cols, { paper: PALETTES[S.palette].paper, stars: stars, dots: dots, gridW: 3 });
 }
+// A short note on the home screen: shown until NOTE.until, or until the player closes it
+var NOTE = { id: 'priyank', text: 'Priyank is the best!', until: Date.parse('2026-10-25T12:04:00Z') }, noteTimer = 0;
+function noteShown() { return Date.now() < NOTE.until && !seen['note:' + NOTE.id]; }
+function removeNote() { var el = $('#dev-note'); if (el) el.remove(); }
 function renderPlay() {
   var v = $('#v-play'), st = loadStats(), sk = streakInfo(st), now = new Date();
   var saved = savedGame(K.game), daily = savedGame(K.daily), size = chosenSize(), tier = chosenTier(size), tl = tiersFor(size);
   var html = '<div class="topbar"><div class="brand">' + brandMark(38) + wordmark() + '</div>' +
     '<button class="chip-streak" id="streak-chip" aria-label="Day streak">' + I.spark + '<span class="num">' + sk.current + '</span></button></div>' +
     '<div class="greet"><h1>' + greeting() + '</h1><p>' + DAYS[now.getDay()] + ', ' + now.getDate() + ' ' + MONTHS[now.getMonth()] + (sk.current ? ' · ' + sk.current + '-day streak' : '') + '</p></div>';
+  if (noteShown()) html += '<div class="card dev-note" id="dev-note" role="status"><div class="txt">' + esc(NOTE.text) + '</div>' +
+    '<button class="icon-btn" id="note-close" aria-label="Close note">' + I.close + '</button></div>';
   if (saved && !saved.solved && !saved.failed) {
     var n = savedProgress(saved), sn = boardSize(saved.regions);
     html += '<div class="card"><button class="play-card" id="c-continue"><div class="thumb">' + thumbFor(saved, true) + '</div><div class="info"><div class="eyebrow">Continue</div><div class="t1">' + (sn !== 10 ? sizeLabel(sn) + ' ' : '') + saved.tier + (saved.ink ? ' · Ink' : '') + '</div><div class="t2">' + n + ' of ' + sn + W(' stars · ') + fmtTime(saved.elapsed) + '</div></div><span class="go">' + I.play + '</span></button></div>';
@@ -2582,6 +2591,11 @@ function renderPlay() {
   $('#ink-switch').onclick = function () { S.ink = !S.ink; saveSettings(); renderPlay(); if (S.ink && !seen.inkIntro) showInkIntro(); };
   $('#start-btn').onclick = function () { confirmNew(function () { startNew(); }); };
   if ($('#c-lesson')) $('#c-lesson').onclick = function () { openLesson(); };
+  clearTimeout(noteTimer);
+  if ($('#note-close')) {
+    $('#note-close').onclick = function () { markSeen('note:' + NOTE.id); removeNote(); };
+    noteTimer = setTimeout(removeNote, Math.max(0, NOTE.until - Date.now()));   // gone on time even if the screen stays open
+  }
 }
 
 /* ---------------------------------------------------------------- sheets */

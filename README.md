@@ -18,7 +18,7 @@ The Learn tab has a guided lesson, the techniques, and **How puzzles are made**:
 
 ## Sharing a board
 
-Every board has a board ID, shown in the ⋯ menu and when you solve it. **Challenge a friend** on the Solved screen sends your time and a link to the board (**Share this board** in the ⋯ menu sends the link mid-game). Tapping the link opens that board; a new player sees the welcome first and finds the board at the top of the Play tab. A link, an ID or a whole message can also be pasted under **Shared board** on the Play tab. The ID spells out the whole board, so it works for every board, including the daily and ones made on your device, and it works offline.
+Every board has a board ID, shown in the ⋯ menu and when you solve it. **Challenge a friend** on the Solved screen sends your time and a link to the board (**Share this board** in the ⋯ menu sends the link mid-game). Tapping the link opens that board; someone new to the game first sees a short welcome with the puzzle, the rules, **Play it** and **Learn to play first**. On iPhone, links always open in Safari, which keeps its own copy of the game apart from the Home Screen app; to play a link in the app, copy the message, open the app and tap **Paste** under **Shared board** (the box also takes a link, an ID or a whole message typed or pasted in). The ID spells out the whole board, so it works for every board, including the daily and ones made on your device, and it works offline.
 
 ## Controls
 

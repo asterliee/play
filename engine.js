@@ -957,6 +957,134 @@
     return out;
   }
 
+  // ------------------------------------------------------------------
+  // Board ids for sharing: the whole board in a few letters
+  // ------------------------------------------------------------------
+  // A board id spells out the board itself, so every board can be shared and
+  // played: the built-in ones, the daily and the ones made on the device. It
+  // is the size (2-9, then A = 10, B = 11), the layout and a check letter, in
+  // 32 letters and digits that are hard to mix up (no 0, 1, I or O), shown in
+  // groups of four: about 11 letters for 6×6, 18 for 8×8 and 27 for 10×10.
+  // Dashes, spaces and letter case don't matter when one is read back.
+  // The layout is read cell by cell in reading order. A cell nearly always
+  // joins the region of its left, top, top-right or top-left neighbour, so the
+  // id records which one, or a new region, or (rarely) another earlier one.
+  // Arithmetic coding makes each answer cost as many bits as it is unlikely,
+  // going by ID_ODDS: how often each answer comes up in the built-in boards,
+  // for each pattern of those four neighbours. Any layout can be written
+  // whatever the odds, so changes to the generator never break ids. Changing
+  // ID_ODDS would, so it stays as it is.
+  var ID_ABC = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  // [left, top, top-right, top-left] (same digit = same region, x = off the board) -> odds of
+  // [1st, 2nd, 3rd, 4th of those regions, a new region, another earlier region]
+  var ID_ODDS = {
+    '0000': [3190, 0, 0, 0, 548, 358], '0001': [4096, 1, 0, 0, 1, 1], '0010': [2761, 881, 0, 0, 333, 122],
+    '0011': [4096, 1, 0, 0, 1, 1], '0012': [4096, 1, 1, 0, 1, 1], '0100': [2835, 1261, 0, 0, 1, 1],
+    '0101': [3716, 379, 0, 0, 1, 1], '0102': [3720, 376, 1, 0, 1, 1], '0110': [1775, 1830, 0, 0, 346, 145],
+    '0111': [2025, 1619, 0, 0, 312, 140], '0112': [2045, 1750, 1, 0, 229, 73], '0120': [918, 2445, 524, 0, 163, 46],
+    '0121': [1337, 1909, 610, 0, 198, 43], '0122': [4, 4088, 1, 0, 1, 4], '0123': [1054, 2504, 425, 1, 94, 19],
+    '00x0': [3549, 0, 0, 0, 416, 130], '00x1': [4096, 1, 0, 0, 1, 1], '01x0': [1311, 2544, 0, 0, 202, 38],
+    '01x1': [1636, 2237, 0, 0, 212, 11], '01x2': [1387, 2606, 1, 0, 102, 1], '0xxx': [3105, 0, 0, 0, 989, 2],
+    'x00x': [3102, 0, 0, 0, 751, 243], 'x01x': [3111, 698, 0, 0, 252, 35]
+  };
+  function idSum(f, n) { var s = 0; for (var k = 0; k < n; k++) s += f[k]; return s; }
+  // The choice at cell i, given the cells before it (regions numbered in order of first
+  // appearance, `top` the highest so far): the neighbours' regions, the earlier regions
+  // that aren't neighbours, and the odds of each answer
+  function idChoice(reg, N, i, top) {
+    var r = (i / N) | 0, c = i % N, cand = [], others = [], key = '', k;
+    var nb = [c ? reg[i - 1] : -1, r ? reg[i - N] : -1, r && c < N - 1 ? reg[i - N + 1] : -1, r && c ? reg[i - N - 1] : -1];
+    for (k = 0; k < 4; k++) {
+      if (nb[k] < 0) { key += 'x'; continue; }
+      var at = cand.indexOf(nb[k]);
+      if (at < 0) { at = cand.length; cand.push(nb[k]); }
+      key += at;
+    }
+    for (k = 0; k <= top; k++) if (cand.indexOf(k) < 0) others.push(k);
+    var f = (ID_ODDS[key] || [1, 1, 1, 1, 1, 1]).slice();
+    for (k = cand.length; k < 4; k++) f[k] = 0;
+    if (top + 1 >= N) f[4] = 0;          // every region has begun
+    if (!others.length) f[5] = 0;
+    return { cand: cand, others: others, f: f };
+  }
+  // A check letter made from the layout, so a mistyped id is caught
+  function idCheck(reg) {
+    var s = encode(reg), h = 0x2545f491;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    return ID_ABC[(h ^ (h >>> 16)) & 31];
+  }
+  // Every region in one piece, and no region split in two
+  function idConnected(reg, N) {
+    var nei4 = geometry(N).nei4, seen = new Uint8Array(N * N), began = {}, stack = [];
+    for (var i = 0; i < N * N; i++) {
+      if (seen[i]) continue;
+      if (began[reg[i]]) return false;
+      began[reg[i]] = 1; seen[i] = 1; stack.push(i);
+      while (stack.length) {
+        var j = stack.pop();
+        for (var k = 0; k < nei4[j].length; k++) {
+          var q = nei4[j][k];
+          if (!seen[q] && reg[q] === reg[j]) { seen[q] = 1; stack.push(q); }
+        }
+      }
+    }
+    return true;
+  }
+  // The id of a board (its regions), e.g. "8K7Q-M4XP-ZH2T-W9CK-R3"; null if it can't have one.
+  // The code is a point in [lo, lo + span) / den, a range each answer narrows to its share of
+  // the odds; exact whole numbers (BigInt) keep it simple and exact.
+  function shareId(regions) {
+    var N = Math.round(Math.sqrt(regions.length));
+    if (typeof BigInt !== 'function' || N < 2 || N > 11 || N * N !== regions.length) return null;
+    var reg = canonical(regions), B = BigInt, lo = B(0), span = B(1), den = B(1), top = 0, i;
+    function narrow(from, size, total) { lo = lo * B(total) + span * B(from); span = span * B(size); den = den * B(total); }
+    for (i = 1; i < N * N; i++) {
+      var ch = idChoice(reg, N, i, top), v = reg[i], a = ch.cand.indexOf(v);
+      if (a < 0) a = v > top ? 4 : 5;
+      if (!ch.f[a]) return null;           // more than N regions
+      narrow(idSum(ch.f, a), ch.f[a], idSum(ch.f, 6));
+      if (a === 5) narrow(ch.others.indexOf(v), 1, ch.others.length);
+      if (v > top) top = v;
+    }
+    if (top !== N - 1) return null;
+    // the fewest letters whose value lands in the range
+    var bits = 0, one = B(1), x = B(0);
+    for (;;) {
+      x = (lo * one + den - B(1)) / den;   // rounded up
+      if (x * den < (lo + span) * one) break;
+      bits += 5; one = B(1) << B(bits);
+    }
+    var body = '';
+    for (i = 0; i < bits / 5; i++) { body = ID_ABC[Number(x % B(32))] + body; x = x / B(32); }
+    return (ID_ABC[N - 2] + body + idCheck(reg)).replace(/(.{4})(?=.)/g, '$1-');
+  }
+  // The regions of a board id (an Int8Array), or null if it isn't the id of a board
+  function fromShareId(text) {
+    var s = String(text == null ? '' : text).toUpperCase().replace(/[\s-]+/g, '');
+    if (typeof BigInt !== 'function' || s.length < 2 || !/^[2-9A-HJ-NP-Z]+$/.test(s)) return null;
+    var N = ID_ABC.indexOf(s[0]) + 2;
+    if (N > 11) return null;
+    var body = s.slice(1, -1), B = BigInt, x = B(0), one = B(1) << B(5 * body.length), i;
+    for (i = 0; i < body.length; i++) x = x * B(32) + B(ID_ABC.indexOf(body[i]));
+    var lo = B(0), span = B(1), den = B(1), top = 0, reg = new Int8Array(N * N);
+    // the answer whose share of the range holds the code, narrowing the range to it
+    function pick(f) {
+      var total = idSum(f, f.length), t = Number((x * den - lo * one) * B(total) / (span * one)), from = 0, a = 0;
+      while (t >= from + f[a]) from += f[a++];
+      lo = lo * B(total) + span * B(from); span = span * B(f[a]); den = den * B(total);
+      return a;
+    }
+    for (i = 1; i < N * N; i++) {
+      var ch = idChoice(reg, N, i, top), a = pick(ch.f);
+      reg[i] = a < 4 ? ch.cand[a] : a === 4 ? top + 1 : ch.others[pick(ch.others.map(function () { return 1; }))];
+      if (reg[i] > top) top = reg[i];
+    }
+    if (top !== N - 1 || !idConnected(reg, N)) return null;
+    // only a board's own id counts (this also checks the check letter)
+    var own = shareId(reg);
+    return own && own.replace(/-/g, '') === s ? reg : null;
+  }
+
   // Analyse a board fully: route, bottlenecks and grade
   function analyse(regions, N, record) {
     N = N || Math.round(Math.sqrt(regions.length));
@@ -983,6 +1111,7 @@
     route: route, bottlenecks: bottlenecks, profile: profile, gradeOf: gradeOf,
     countSolutions: countSolutions, randomSolution: randomSolution, growRegions: growRegions, anneal: anneal,
     encode: encode, decode: decode, canonical: canonical, transform: transform, boardId: boardId,
+    shareId: shareId, fromShareId: fromShareId,
     analyse: analyse, stateFrom: stateFrom, maskCells: maskCells, bits: bits,
     GAME: GAME, FULL: FULL, PRICES: { single: P_SINGLE, confine: P_CONFINE, squeeze: P_SQUEEZE, count: COUNT,
       edge: EDGE, spread: SPREAD, cross: CROSS, whatIf: WHATIF, inGame: IN_GAME, pair: PAIR, expert: EXPERT },

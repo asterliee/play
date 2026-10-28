@@ -16,6 +16,10 @@ Open **[asterliee.github.io/play](https://asterliee.github.io/play/)** in any mo
 
 The Learn tab has a guided lesson, the techniques, and **How puzzles are made**: the game builds a real 6×6 puzzle on the spot and shows each stage, from the answer it starts with to the solve that sets its level.
 
+## Sharing a board
+
+Every board has a board ID, shown in the ⋯ menu and when you solve it. **Share result** (or **Share this board** in the ⋯ menu) sends your time and the ID to a friend, who pastes it under **Shared board** on the Play tab to play the same board. The ID spells out the whole board, so it works for every board, including the daily and ones made on your device, and it works offline.
+
 ## Controls
 
 | Action | Input |
@@ -33,7 +37,7 @@ Keyboard: Ctrl+Z / ⌘Z undo, Ctrl+Y / ⇧⌘Z redo, H hint, Esc close.
 | File | What it is |
 |---|---|
 | `index.html` | The game: interface, hints, lesson and the built-in puzzle bank |
-| `engine.js` | The puzzle engine: solver, grading and generator. Runs in the page, in the Web Worker that makes new puzzles in the background, and in Node (`require('./engine.js')`) |
+| `engine.js` | The puzzle engine: solver, grading, generator and board IDs. Runs in the page, in the Web Worker that makes new puzzles in the background, and in Node (`require('./engine.js')`) |
 | `sw.js` | Offline support |
 
 When you change `engine.js`, bump the `?v=` on its script tag in `index.html`. Installed copies then update the page and its engine together.

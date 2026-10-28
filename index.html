@@ -678,7 +678,7 @@ if (!E) {   // engine.js did not load: offline, and this version was never saved
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.6.3';   // when engine.js changes, also bump the ?v= on its script tag
+var APP_VERSION = '3.7.0';   // when engine.js changes, also bump the ?v= on its script tag
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 8×8 is a shorter game with the same four tiers;
 // 6×6 is a quick game that tops out at Hard.
@@ -2446,6 +2446,7 @@ function closeGame() {
   screen = 'tabs';
   $('#game').hidden = true; $('#tabbar').hidden = false;
   showTab('play');
+  applyUpdate();   // a new version waiting for this puzzle to end
 }
 function goBack() { if (history.state && (history.state.s === 'game' || history.state.s === 'lesson' || history.state.s === 'explain')) history.back(); else if (lessonOpen) closeLesson(); else if (explainOpen) closeExplain(); else closeGame(); }
 
@@ -3866,6 +3867,50 @@ function refreshAll() {
   if (lessonOpen && LS) { LS.view.build(LESSON_REG.split('').map(Number), L_MAP, lPal()); LS.view.redraw(LS.marks); renderLessonStep(); }
   if (explainOpen && XS) { $$('.view').forEach(function (v) { v.hidden = true; }); var xk = XS.scene; xBuild(); xShow(xk); }   // new colours: replay the scene
 }
+
+/* ---------------------------------------------------------------- app updates */
+// sw.js saves each new version of the game in the background. A Home Screen app on iPhone is
+// usually resumed rather than reopened, so the page also asks it to look whenever the app comes
+// back to the screen, and every 20 minutes while it stays open. Once a new version is saved
+// ('page-updated'), the page reloads into it at a quiet moment: straight away on the tabs with
+// nothing open, otherwise on leaving the puzzle or when the app goes to the background.
+var updateReady = false, lastUpdateCheck = 0;
+function checkForUpdate() {
+  var sw = navigator.serviceWorker;
+  if (!sw || !sw.controller || Date.now() - lastUpdateCheck < 60000) return;
+  lastUpdateCheck = Date.now();
+  try { sw.controller.postMessage({ type: 'check' }); } catch (e) { }
+  if (sw.getRegistration) sw.getRegistration().then(function (r) { if (r) return r.update(); }).catch(function () { });   // a new sw.js too
+}
+function quietMoment() {
+  var a = document.activeElement;
+  return screen === 'tabs' && !lessonOpen && !explainOpen && !$('#welcome') && !$('#sheet').classList.contains('show') &&
+    !(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'));
+}
+function applyUpdate() {
+  if (!updateReady || !quietMoment()) return;
+  var at = 0;
+  try { at = +sessionStorage.getItem('sb1:updated-at') || 0; } catch (e) { }
+  if (Date.now() - at < 120000) return;   // never twice in two minutes, whatever happens
+  try { sessionStorage.setItem('sb1:updated-at', String(Date.now())); sessionStorage.setItem('sb1:updated-tab', tab); } catch (e) { }
+  location.reload();
+}
+function watchForUpdates() {
+  var sw = navigator.serviceWorker;
+  if (!sw || !/^https?:$/.test(location.protocol)) return;
+  // setting onmessage also delivers anything sw.js sent while the page was still loading
+  sw.onmessage = function (e) { if (e.data && e.data.type === 'page-updated') { updateReady = true; applyUpdate(); } };
+  document.addEventListener('visibilitychange', function () { if (document.hidden) applyUpdate(); else { checkForUpdate(); applyUpdate(); } });
+  setInterval(function () { if (!document.hidden) checkForUpdate(); }, 20 * 60000);
+}
+// After reloading into a new version: back to the tab the player was on, and say what happened
+function afterUpdate() {
+  var t = null;
+  try { t = sessionStorage.getItem('sb1:updated-tab'); sessionStorage.removeItem('sb1:updated-tab'); } catch (e) { }
+  if (!t || pendingShared || !seen.welcome) return;
+  if (t !== 'play' && $('#v-' + t)) showTab(t);
+  toast(APP_NAME + ' updated to ' + APP_VERSION);
+}
 function init() {
   applyTheme();
   document.body.insertAdjacentHTML('afterbegin', sharedDefs());
@@ -3949,6 +3994,8 @@ function init() {
     if (tab === 'play') renderPlay();
     playShared(b);
   });
+  afterUpdate();
+  watchForUpdates();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 

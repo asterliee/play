@@ -2,8 +2,11 @@
  * Asterlie offline support.
  *
  * Keeps a copy of the game on the device so it opens without a connection.
- * Each launch also checks for a newer copy in the background; if one is
- * found, the next launch uses it.
+ * Each launch checks for a newer copy in the background, and so does the page
+ * when it asks ({ type: 'check' }), which it does whenever it comes back to
+ * the screen: a Home Screen app on iPhone is usually resumed, not reopened.
+ * When a newer copy is saved, open pages are told ({ type: 'page-updated' })
+ * and reload once no puzzle is in the way.
  *
  * Only a page that registers this script is saved, so a sign-in page, an
  * error page or a Wi-Fi login portal can never replace the game.
@@ -98,22 +101,40 @@ self.addEventListener('fetch', (event) => {
   else event.respondWith(getFile(req));
 });
 
-// The game page: the saved copy straight away, refreshed in the background
-// (with its engine) for the next launch.
+// The game page: the saved copy straight away, and a check for a newer one in the background.
 async function openPage(event) {
   const cache = await caches.open(CACHE);
   const saved = await cache.match(PAGE);
-  const fromNetwork = fetch(event.request).then(async (res) => {
+  if (saved) {
+    event.waitUntil(refreshPage(cache).catch(() => { }));
+    return saved;
+  }
+  // nothing saved yet: show whatever the network returns (and keep it if it's the game)
+  return fetch(event.request).then(async (res) => {
     const text = await gamePage(res);
     if (text) await savePage(cache, res.clone(), text).catch(() => { });
     return res;
   });
-  if (saved) {
-    event.waitUntil(fromNetwork.catch(() => { }));
-    return saved;
-  }
-  return fromNetwork; // nothing saved yet: show whatever the network returns
 }
+
+// Fetch the game page past the browser's own cache (GitHub Pages lets it keep pages for 10
+// minutes). If it differs from the saved copy, save it with its engine and tell the open pages.
+async function refreshPage(cache) {
+  cache = cache || await caches.open(CACHE);
+  const res = await fetch(new Request(PAGE, { cache: 'no-cache' }));
+  const text = await gamePage(res);
+  if (!text) return;
+  const old = await cache.match(PAGE);
+  if (old && (await old.text()) === text) return;
+  await savePage(cache, res, text);
+  if (!old) return;
+  const pages = await self.clients.matchAll({ type: 'window' });
+  pages.forEach((p) => p.postMessage({ type: 'page-updated' }));
+}
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'check') event.waitUntil(refreshPage().catch(() => { }));
+});
 
 // The engine: the saved copy of exactly this version, else the network.
 async function getEngine(req) {

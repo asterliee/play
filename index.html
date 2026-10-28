@@ -678,7 +678,7 @@ if (!E) {   // engine.js did not load: offline, and this version was never saved
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.6.2';   // when engine.js changes, also bump the ?v= on its script tag
+var APP_VERSION = '3.6.3';   // when engine.js changes, also bump the ?v= on its script tag
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 8×8 is a shorter game with the same four tiers;
 // 6×6 is a quick game that tops out at Hard.
@@ -2681,13 +2681,14 @@ function boardWords(g) {
 }
 // The link that opens a board (a game or a board from sharedBoard)
 function linkFor(g) { var id = E.shareId(E.decode(g.regions)); return id ? location.origin + location.pathname + '#board=' + id : ''; }
-// Once solved, a challenge with your time; before that, an invite
+// Once solved, a challenge: "Beat me! 3:41 with no hints on this 10×10 Hard Asterlie puzzle";
+// before that, an invite
 function shareText(solved) {
   var link = linkFor(game);
   if (!link) return '';
   if (!solved) return 'Try ' + boardWords(game) + ' ⭐\n' + link;
-  return 'I solved ' + boardWords(game) + ' in ' + fmtTime(game.elapsed) + ' with ' + (game.hints ? game.hints + (game.hints > 1 ? ' hints' : ' hint') : 'no hints') +
-    (game.ink ? ' in Ink mode' : '') + ' ⭐ Can you beat my time?\n' + link;
+  return 'Beat me! ' + fmtTime(game.elapsed) + ' with ' + (game.hints ? game.hints + (game.hints > 1 ? ' hints' : ' hint') : 'no hints') +
+    ' on ' + boardWords(game) + (game.ink ? ' in Ink mode' : '') + '\n' + link;
 }
 // Phones and tablets get the share sheet; computers copy the message
 function shareBoard(solved) {

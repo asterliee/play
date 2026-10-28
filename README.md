@@ -18,7 +18,7 @@ The Learn tab has a guided lesson, the techniques, and **How puzzles are made**:
 
 ## Sharing a board
 
-Every board has a board ID, shown in the ⋯ menu and when you solve it. **Share result** (or **Share this board** in the ⋯ menu) sends your time and the ID to a friend, who pastes it under **Shared board** on the Play tab to play the same board. The ID spells out the whole board, so it works for every board, including the daily and ones made on your device, and it works offline.
+Every board has a board ID, shown in the ⋯ menu and when you solve it. **Challenge a friend** on the Solved screen sends your time and a link to the board (**Share this board** in the ⋯ menu sends the link mid-game). Tapping the link opens that board; a new player sees the welcome first and finds the board at the top of the Play tab. A link, an ID or a whole message can also be pasted under **Shared board** on the Play tab. The ID spells out the whole board, so it works for every board, including the daily and ones made on your device, and it works offline.
 
 ## Controls
 

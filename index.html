@@ -674,7 +674,7 @@ if (!E) {   // engine.js did not load: offline, and this version was never saved
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.6.0';   // when engine.js changes, also bump the ?v= on its script tag
+var APP_VERSION = '3.6.1';   // when engine.js changes, also bump the ?v= on its script tag
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 8×8 is a shorter game with the same four tiers;
 // 6×6 is a quick game that tops out at Hard.
@@ -2593,51 +2593,75 @@ function savedProgress(g) {
 }
 
 /* ---------------------------------------------------------------- shared boards */
-// A board ID (the engine's shareId) spells out the whole board, so any board can be passed on:
-// the Solved sheet and the ⋯ menu share one, and the Shared board card on the Play tab plays one.
-var BID_HELP = 'Got a board ID from a friend? Paste it here to play the same board.', bidDraft = '';
+// A board ID (the engine's shareId) spells out the whole board, so any board can be passed on.
+// Challenge a friend (Solved sheet) and Share this board (⋯ menu) send a link with the ID in it,
+// #board=<ID>, and tapping it opens that board. The Shared board card on the Play tab takes an
+// ID, a link or a whole message pasted in.
+var BID_HELP = 'Got a link or board ID from a friend? Paste it here to play the same puzzle.', bidDraft = '';
+var pendingShared = null;   // a board from a link, waiting at the top of the Play tab
 function bidMsg(err) {
   var m = $('#bid-msg');
   if (!m) return;
   m.textContent = err || BID_HELP;
   m.classList.toggle('err', !!err);
 }
-// The regions in a board ID, or in a whole shared message with one in it (the words after
-// "Board ID", else any run of words that reads as one); null if there are none
+// The regions in a board link, a board ID or a whole message with one in it (a board= link first,
+// then the words after "Board ID", then any run of words that reads as an ID); null if there are none
 function regionsFromText(text) {
-  var m = /board\s*id\b[:\s]*([\s\S]*)/i.exec(text || ''), words = String(m ? m[1] : text || '').trim().split(/\s+/).slice(0, 16);
+  text = String(text || '');
+  var link = /[#?&]board=([0-9a-z-]+)/i.exec(text), reg = link ? E.fromShareId(link[1]) : null;
+  if (reg) return reg;
+  var m = /board\s*id\b[:\s]*([\s\S]*)/i.exec(text), words = (m ? m[1] : text).trim().split(/\s+/).slice(0, 16);
   words = words.map(function (w) { return w.replace(/^[^0-9a-z]+|[^0-9a-z]+$/gi, ''); });
   for (var a = 0; a < words.length; a++) for (var b = words.length; b > a; b--) {
-    var reg = E.fromShareId(words.slice(a, b).join(''));
+    reg = E.fromShareId(words.slice(a, b).join(''));
     if (reg) return reg;
   }
   return null;
 }
-function playSharedId(text) {
-  if (!String(text || '').trim()) { bidMsg('Paste a board ID first.'); return; }
-  if (typeof BigInt !== 'function') { bidMsg('Board IDs need a newer browser.'); return; }
+// The board in a link, ID or message, checked and graded: { board } or { err }
+function sharedBoard(text) {
+  if (!String(text || '').trim()) return { err: 'Paste a link or board ID first.' };
+  if (typeof BigInt !== 'function') return { err: 'Board IDs need a newer browser.' };
   var reg = regionsFromText(text);
-  if (!reg) { bidMsg('That isn’t a board ID. Check that all of it was copied.'); return; }
+  if (!reg) return { err: 'That isn’t a board ID. Check that all of it was copied.' };
   var n = boardSize(reg);
-  if (SIZES.indexOf(n) < 0) { bidMsg('That is a ' + sizeLabel(n) + ' board, and ' + APP_NAME + ' doesn’t have that size.'); return; }
+  if (SIZES.indexOf(n) < 0) return { err: 'That is a ' + sizeLabel(n) + ' board, and ' + APP_NAME + ' doesn’t have that size.' };
   var cs = E.countSolutions(n, reg, 2), a = cs.count === 1 ? E.analyse(reg, n) : null;
-  if (!a || tiersFor(n).indexOf(a.grade) < 0) { bidMsg('That board can’t be played here.'); return; }
-  var board = { regions: E.encode(reg), solution: cs.solution.join(''), tier: a.grade, score: Math.round(a.score * 10) / 10, id: E.boardId(reg) };
-  confirmNew(function () { bidDraft = ''; startBoard(board, { ink: S.ink }); });
+  if (!a || tiersFor(n).indexOf(a.grade) < 0) return { err: 'That board can’t be played here.' };
+  return { board: { regions: E.encode(reg), solution: cs.solution.join(''), tier: a.grade, score: Math.round(a.score * 10) / 10, id: E.boardId(reg) } };
 }
-// "a 10×10 Hard board", "an 8×8 Easy board", "the daily puzzle for 29 October (10×10 Medium)"
+function playShared(board) {
+  confirmNew(function () { pendingShared = null; bidDraft = ''; startBoard(board, { ink: S.ink }); });
+}
+function playSharedId(text) {
+  var r = sharedBoard(text);
+  if (r.err) bidMsg(r.err); else playShared(r.board);
+}
+// The board of a link the app was opened with (#board=<ID>), or null. The link is cleared from
+// the address bar, so a reload doesn't bring the board back.
+function boardFromLink() {
+  var m = /^#board=([^&]*)/i.exec(location.hash);
+  if (!m) return null;
+  try { history.replaceState(history.state, '', location.pathname + location.search); } catch (e) { }
+  var r = sharedBoard(decodeURIComponent(m[1]));
+  if (r.err) { toast('The puzzle in that link couldn’t be opened.', 3000); return null; }
+  return r.board;
+}
+// "this 10×10 Hard Asterlie puzzle", "the Asterlie daily puzzle for 29 October (10×10 Medium)"
 function boardWords(g) {
   var n = boardSize(g.regions), what = sizeLabel(n) + ' ' + g.tier, d = String(g.daily || '').split('-');
-  if (g.daily && d.length === 3) return 'the daily puzzle for ' + (+d[2]) + ' ' + MONTHS[d[1] - 1] + ' (' + what + ')';
-  return (n === 8 || n === 11 ? 'an ' : 'a ') + what + ' board';
+  if (g.daily && d.length === 3) return 'the ' + APP_NAME + ' daily puzzle for ' + (+d[2]) + ' ' + MONTHS[d[1] - 1] + ' (' + what + ')';
+  return 'this ' + what + ' ' + APP_NAME + ' puzzle';
 }
+function boardLink() { var id = E.shareId(game._reg); return id ? location.origin + location.pathname + '#board=' + id : ''; }
+// Once solved, a challenge with your time; before that, an invite
 function shareText(solved) {
-  var id = E.shareId(game._reg), url = location.origin + location.pathname;
-  if (!id) return '';
-  if (!solved) return 'Try ' + boardWords(game) + ' in ' + APP_NAME + ' ⭐\nBoard ID: ' + id + '\n' + url;
-  return 'I solved ' + boardWords(game) + ' in ' + APP_NAME + ' in ' + fmtTime(game.elapsed) +
-    (game.hints ? ' with ' + game.hints + (game.hints > 1 ? ' hints' : ' hint') : ', no hints') + (game.ink ? ', in Ink' : '') + ' ⭐\n' +
-    'Can you beat my time? Board ID: ' + id + '\n' + url;
+  var link = boardLink();
+  if (!link) return '';
+  if (!solved) return 'Try ' + boardWords(game) + ' ⭐\n' + link;
+  return 'I solved ' + boardWords(game) + ' in ' + fmtTime(game.elapsed) + ' with ' + (game.hints ? game.hints + (game.hints > 1 ? ' hints' : ' hint') : 'no hints') +
+    (game.ink ? ' in Ink mode' : '') + ' ⭐ Can you beat my time?\n' + link;
 }
 // Phones and tablets get the share sheet; computers copy the message
 function shareBoard(solved) {
@@ -2687,6 +2711,7 @@ function renderPlay() {
     '<div class="greet"><h1>' + greeting() + '</h1><p>' + DAYS[now.getDay()] + ', ' + now.getDate() + ' ' + MONTHS[now.getMonth()] + (sk.current ? ' · ' + sk.current + '-day streak' : '') + '</p></div>';
   if (noteShown()) html += '<div class="card dev-note" id="dev-note" role="status"><div class="txt">' + esc(NOTE.text) + '</div>' +
     '<button class="icon-btn" id="note-close" aria-label="Close note">' + I.close + '</button></div>';
+  if (pendingShared) html += '<div class="card"><button class="play-card" id="c-shared"><div class="thumb">' + thumbFor(pendingShared, false) + '</div><div class="info"><div class="eyebrow">From a friend</div><div class="t1">' + sizeLabel(boardSize(pendingShared.regions)) + ' ' + pendingShared.tier + '</div><div class="t2">A puzzle shared with you. Tap to play it.</div></div><span class="go">' + I.play + '</span></button></div>';
   if (saved && !saved.solved && !saved.failed) {
     var n = savedProgress(saved), sn = boardSize(saved.regions);
     html += '<div class="card"><button class="play-card" id="c-continue"><div class="thumb">' + thumbFor(saved, true) + '</div><div class="info"><div class="eyebrow">Continue</div><div class="t1">' + (sn !== 10 ? sizeLabel(sn) + ' ' : '') + saved.tier + (saved.ink ? ' · Ink' : '') + '</div><div class="t2">' + n + ' of ' + sn + W(' stars · ') + fmtTime(saved.elapsed) + '</div></div><span class="go">' + I.play + '</span></button></div>';
@@ -2713,6 +2738,7 @@ function renderPlay() {
   v.innerHTML = html;
   $('#streak-chip').onclick = function () { $('#tabbar [data-tab=stats]').click(); };
   if ($('#c-continue')) $('#c-continue').onclick = continueGame;
+  if ($('#c-shared')) $('#c-shared').onclick = function () { playShared(pendingShared); };
   $('#c-daily').onclick = openDaily;
   $$('.tiers button', v).forEach(function (b) { b.onclick = function () { store.set(K.tier, b.dataset.t); renderPlay(); genKick(); }; });
   $$('#size-seg button', v).forEach(function (b) { b.onclick = function () { store.set(K.size, +b.dataset.n); renderPlay(); genKick(); }; });
@@ -2764,7 +2790,7 @@ function showSolvedSheet(r) {
   openSheet('<div class="center">' + solvedArt() + '<h2>Solved</h2><p class="lead" style="margin-bottom:4px">' + gameLabel(game) + ' · ' + fmtTime(game.elapsed) + (game.ink ? ' · in Ink' : '') + '</p><div class="badges">' + badges + '</div></div>' +
     '<div class="facts"><div class="fact"><b>' + fmtTime(game.elapsed) + '</b><span>' + (r.newBest ? '<span class="new-best">New best</span>' : 'Time') + '</span></div><div class="fact"><b>' + fmtTime(r.best) + '</b><span>Best ' + (game.daily ? 'daily' : game.tier) + '</span></div><div class="fact"><b>' + r.streak + '</b><span>Day streak</span></div></div>' +
     unlock + '<button class="btn btn-primary" id="s-next">' + I.play + 'Next puzzle</button><button class="btn btn-soft" id="s-home">Home</button>' +
-    (E.shareId(game._reg) ? '<button class="btn btn-text" id="s-share">' + I.share + 'Share result</button>' : '') + boardIdNote('', true), function (b) {
+    (E.shareId(game._reg) ? '<button class="btn btn-text" id="s-share">' + I.share + 'Challenge a friend</button>' : '') + boardIdNote('', true), function (b) {
       $('#s-next', b).onclick = function () { closeSheet(); nextPuzzle(); };
       $('#s-home', b).onclick = function () { closeSheet(); goBack(); };
       if ($('#s-share', b)) $('#s-share', b).onclick = function () { shareBoard(true); };
@@ -2787,7 +2813,7 @@ function showInkFailSheet() {
 function showMoreMenu() {
   openSheet((game.failed ? '<button class="menu-item" id="mm-retry">' + I.restore + 'Retry puzzle</button>' : '') +
     '<button class="menu-item" id="mm-new">' + I.spark + 'New puzzle</button>' +
-    (E.shareId(game._reg) ? '<button class="menu-item" id="mm-share">' + I.share + 'Share this board</button>' : '') +
+    (E.shareId(game._reg) ? '<button class="menu-item" id="mm-share">' + I.share + (game.solved ? 'Challenge a friend' : 'Share this board') + '</button>' : '') +
     '<button class="menu-item" id="mm-look">' + I.sliders + 'Appearance</button>' +
     '<button class="menu-item" id="mm-learn">' + I.book + 'How to play</button>' +
     boardIdNote((game.daily ? 'Daily · ' : '') + gameLabel(game) + (game.ink ? ' · Ink' : ''), false), function (b) {
@@ -3859,6 +3885,9 @@ function init() {
     var onMq = function () { if (S.theme === 'system') refreshAll(); };
     if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq);
   }
+  // A board link (#board=<ID>) waits at the top of the Play tab: players who know the game go
+  // straight into it, new players meet it after the welcome
+  pendingShared = boardFromLink();
   showTab('play');
   startWorker();
   genKick(1500);
@@ -3867,7 +3896,16 @@ function init() {
   if (!seen.welcome) {
     DEV_NOTES.forEach(function (note) { markSeen(note.id); });   // news is for returning players: everything is new to a first-timer
     showWelcome();
-  } else showDevNote();
+  } else if (pendingShared) playShared(pendingShared);
+  else showDevNote();
+  // a link opened in a tab where the game is already running
+  window.addEventListener('hashchange', function () {
+    var b = boardFromLink();
+    if (!b) return;
+    pendingShared = b;
+    if (tab === 'play') renderPlay();
+    playShared(b);
+  });
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 

@@ -339,20 +339,6 @@ svg { display: block; }
 .sheet h2.sheet-h { font-size: 22px; margin: 2px 0 12px; }
 .note { font-size: 13.5px; color: var(--ink-2); margin: 10px 8px 0; line-height: 1.45; }
 
-/* ---------------- shared boards ---------------- */
-.bid-form { display: flex; gap: 8px; }
-.bid-in { flex: 1; min-width: 0; height: 50px; padding: 0 14px; border-radius: 15px; border: 1.5px solid var(--line-2); background: var(--surface-2); color: var(--ink);
-  font: 600 16px var(--font-num); letter-spacing: .4px; text-transform: uppercase; outline: none; -webkit-appearance: none; appearance: none;
-  -webkit-user-select: text; user-select: text; transition: border-color .15s, box-shadow .15s; }
-.bid-in::placeholder { color: var(--ink-3); font-family: var(--font-ui); font-weight: 500; letter-spacing: 0; text-transform: none; }
-.bid-in:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--primary-soft); }
-.bid-go { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 50px; padding: 0 18px 0 15px; border-radius: 15px; background: var(--primary); color: var(--primary-ink); font-size: 16px; font-weight: 650; box-shadow: var(--primary-shadow); transition: transform .14s; }
-.bid-go svg { width: 16px; height: 16px; }
-.bid-go:active { transform: scale(.97); }
-.bid-msg { margin: 10px 4px 0; color: var(--ink-2); font-size: 14px; line-height: 1.4; }
-.bid-msg.err { color: var(--rose); }
-.board-id { font-family: var(--font-num); font-weight: 600; color: var(--ink); letter-spacing: .3px; white-space: nowrap; -webkit-user-select: text; user-select: text; }
-
 /* ---------------- stats ---------------- */
 .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .tile { background: var(--surface); border-radius: 22px; box-shadow: var(--shadow-1); padding: 14px 15px 13px; }
@@ -483,8 +469,6 @@ svg { display: block; }
 .welcome p.w-note { font-size: 13.5px; color: var(--ink-3); margin: 10px 0 0; }
 .w-board { width: 150px; height: 150px; border-radius: 22px; overflow: hidden; box-shadow: var(--shadow-1); }
 .w-board svg { width: 100%; height: 100%; display: block; }
-.welcome p.w-ios { margin-top: 18px; line-height: 1.45; }
-.w-link { display: inline; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 .tip-icon { width: 64px; height: 64px; margin-bottom: 2px; flex: none; filter: drop-shadow(0 6px 14px rgba(20, 22, 48, .22)); }
 /* Home Screen guide: a dropdown for the phone, then a short list of steps, each with a small picture */
 .guide { width: 100%; max-width: 360px; margin: 0 auto; text-align: left; }
@@ -595,7 +579,7 @@ svg { display: block; }
 }
 @media (hover: hover) and (pointer: fine) {
   #board, #l-board { cursor: pointer; }
-  .btn-primary:hover, .pill.primary:hover, .play-card:hover .go, .bid-go:hover { filter: brightness(1.06); }
+  .btn-primary:hover, .pill.primary:hover, .play-card:hover .go { filter: brightness(1.06); }
   .btn-soft:hover, .icon-btn:hover, .tool:not(:disabled):hover .tw, .pill:not(.primary):not(.ghost):hover, .cal-nav:hover, .pc-btn:hover, .pick:hover, .chip-streak:hover { filter: brightness(.97); }
   .btn-text:hover, .pill.ghost:hover { color: var(--ink); }
   .menu-item:hover, button.li:hover { background: var(--surface-2); }
@@ -678,7 +662,7 @@ if (!E) {   // engine.js did not load: offline, and this version was never saved
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.7.0';   // when engine.js changes, also bump the ?v= on its script tag
+var APP_VERSION = '3.7.1';   // when engine.js changes, also bump the ?v= on its script tag
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 8×8 is a shorter game with the same four tiers;
 // 6×6 is a quick game that tops out at Hard.
@@ -820,7 +804,6 @@ var I = {
   lock: sv('<rect x="5.2" y="10.6" width="13.6" height="9.6" rx="2.4"/><path d="M8.2 10.6V8a3.8 3.8 0 0 1 7.6 0v2.6"/>'),
   restore: sv('<path d="M4.6 12a7.4 7.4 0 1 0 2.2-5.2"/><path d="M4.4 4.4v3.8h3.8"/>'),
   share: sv('<path d="M12 14.5V3.6"/><path d="M8.5 7.1 12 3.6l3.5 3.5"/><path d="M8.3 10H7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-1.3"/>'),
-  paste: sv('<path d="M15.2 4.6h1.6a2 2 0 0 1 2 2v12.6a2 2 0 0 1-2 2H7.2a2 2 0 0 1-2-2V6.6a2 2 0 0 1 2-2h1.6"/><rect x="8.8" y="2.8" width="6.4" height="3.6" rx="1.2"/><path d="M9 11.4h6M9 15.4h4"/>'),
   trash: sv('<path d="M4.6 7h14.8"/><path d="M9.4 7V5.2c0-.7.5-1.2 1.2-1.2h2.8c.7 0 1.2.5 1.2 1.2V7"/><path d="m6.4 7 .9 12.2c.1 1 .9 1.8 1.9 1.8h5.6c1 0 1.8-.8 1.9-1.8L17.6 7"/>'),
   bolt: sv('<path d="M13.2 2.8 5.6 13.4h5.6l-1 7.8 7.6-10.6h-5.6z"/>'),
   phone: sv('<rect x="6.6" y="2.8" width="10.8" height="18.4" rx="2.6"/><path d="M10.6 18.1h2.8"/>'),
@@ -2599,70 +2582,20 @@ function savedProgress(g) {
 }
 
 /* ---------------------------------------------------------------- shared boards */
-// A board ID (the engine's shareId) spells out the whole board, so any board can be passed on.
+// A board's ID (the engine's shareId) spells out the whole board, so any board can be passed on.
 // Challenge a friend (Solved sheet) and Share this board (⋯ menu) send a link with the ID in it,
-// #board=<ID>, and tapping it opens that board. The Shared board card on the Play tab takes an
-// ID, a link or a whole message pasted in.
-var BID_HELP = 'Got a link or board ID from a friend? Paste it here to play the same puzzle.', bidDraft = '';
+// #board=<ID>, and tapping it opens that board. The ID itself is never shown.
 var pendingShared = null;   // a board from a link, waiting at the top of the Play tab
-function bidMsg(err) {
-  var m = $('#bid-msg');
-  if (!m) return;
-  m.textContent = err || BID_HELP;
-  m.classList.toggle('err', !!err);
-}
-// The regions in a board link, a board ID or a whole message with one in it (a board= link first,
-// then the words after "Board ID", then any run of words that reads as an ID); null if there are none
-function regionsFromText(text) {
-  text = String(text || '');
-  var link = /[#?&]board=([0-9a-z-]+)/i.exec(text), reg = link ? E.fromShareId(link[1]) : null;
-  if (reg) return reg;
-  var m = /board\s*id\b[:\s]*([\s\S]*)/i.exec(text), words = (m ? m[1] : text).trim().split(/\s+/).slice(0, 16);
-  words = words.map(function (w) { return w.replace(/^[^0-9a-z]+|[^0-9a-z]+$/gi, ''); });
-  for (var a = 0; a < words.length; a++) for (var b = words.length; b > a; b--) {
-    reg = E.fromShareId(words.slice(a, b).join(''));
-    if (reg) return reg;
-  }
-  return null;
-}
-// The board in a link, ID or message, checked and graded: { board } or { err }
-function sharedBoard(text) {
-  if (!String(text || '').trim()) return { err: 'Paste a link or board ID first.' };
-  if (typeof BigInt !== 'function') return { err: 'Board IDs need a newer browser.' };
-  var reg = regionsFromText(text);
-  if (!reg) return { err: 'That isn’t a board ID. Check that all of it was copied.' };
-  var n = boardSize(reg);
-  if (SIZES.indexOf(n) < 0) return { err: 'That is a ' + sizeLabel(n) + ' board, and ' + APP_NAME + ' doesn’t have that size.' };
+// The board for a board ID, checked and graded; null if it isn't one this game can play
+function sharedBoard(id) {
+  var reg = typeof BigInt === 'function' ? E.fromShareId(id) : null, n = reg ? boardSize(reg) : 0;
+  if (!reg || SIZES.indexOf(n) < 0) return null;
   var cs = E.countSolutions(n, reg, 2), a = cs.count === 1 ? E.analyse(reg, n) : null;
-  if (!a || tiersFor(n).indexOf(a.grade) < 0) return { err: 'That board can’t be played here.' };
-  return { board: { regions: E.encode(reg), solution: cs.solution.join(''), tier: a.grade, score: Math.round(a.score * 10) / 10, id: E.boardId(reg) } };
+  if (!a || tiersFor(n).indexOf(a.grade) < 0) return null;
+  return { regions: E.encode(reg), solution: cs.solution.join(''), tier: a.grade, score: Math.round(a.score * 10) / 10, id: E.boardId(reg) };
 }
 function playShared(board) {
-  confirmNew(function () { pendingShared = null; bidDraft = ''; startBoard(board, { ink: S.ink }); });
-}
-function playSharedId(text) {
-  var r = sharedBoard(text);
-  if (r.err) bidMsg(r.err); else playShared(r.board);
-}
-// With the box empty its button pastes: one tap in the app for a link copied from a message.
-// That matters on iPhone, where links open in Safari and never in the Home Screen app.
-var CAN_PASTE = !!(navigator.clipboard && navigator.clipboard.readText);
-function bidButton() {
-  var b = $('#bid-go');
-  if (b) b.innerHTML = CAN_PASTE && !bidDraft.trim() ? I.paste + 'Paste' : I.play + 'Play';
-}
-function pasteSharedId() {
-  navigator.clipboard.readText().then(function (text) {
-    text = String(text || '').trim();
-    if (!text) { bidMsg('There’s nothing to paste. Copy your friend’s message first.'); return; }
-    var box = $('#bid-in');
-    if (box) box.value = bidDraft = text.slice(0, 500);
-    bidButton();
-    playSharedId(text);
-  }, function () {
-    bidMsg('Couldn’t read what you copied. Long-press the box and choose Paste.');
-    if ($('#bid-in')) $('#bid-in').focus();
-  });
+  confirmNew(function () { pendingShared = null; startBoard(board, { ink: S.ink }); });
 }
 // The board of a link the app was opened with (#board=<ID>), or null. The link is cleared from
 // the address bar, so a reload doesn't bring the board back.
@@ -2670,9 +2603,9 @@ function boardFromLink() {
   var m = /^#board=([^&]*)/i.exec(location.hash);
   if (!m) return null;
   try { history.replaceState(history.state, '', location.pathname + location.search); } catch (e) { }
-  var r = sharedBoard(decodeURIComponent(m[1]));
-  if (r.err) { toast('The puzzle in that link couldn’t be opened.', 3000); return null; }
-  return r.board;
+  var b = sharedBoard(decodeURIComponent(m[1]));
+  if (!b) toast('The puzzle in that link couldn’t be opened.', 3000);
+  return b;
 }
 // "this 10×10 Hard Asterlie puzzle", "the Asterlie daily puzzle for 29 October (10×10 Medium)"
 function boardWords(g) {
@@ -2694,13 +2627,13 @@ function shareText(solved) {
 // Phones and tablets get the share sheet; computers copy the message
 function shareBoard(solved) {
   var text = shareText(solved);
-  if (!text) { toast('Board IDs need a newer browser.'); return; }
+  if (!text) { toast('Sharing needs a newer browser.'); return; }
   var touch = window.matchMedia && matchMedia('(pointer: coarse)').matches;
   if (navigator.share && touch) navigator.share({ text: text }).catch(function (e) { if (!e || e.name !== 'AbortError') copyText(text); });
   else copyText(text);
 }
-function copyText(text, okMsg, failMsg) {
-  function done(ok) { toast(ok ? okMsg || 'Copied. Send it to a friend.' : failMsg || 'Could not copy. The board ID is shown below.', 3200); }
+function copyText(text) {
+  function done(ok) { toast(ok ? 'Copied. Send it to a friend.' : 'Could not copy the message.', 3200); }
   function fallback() {
     var ta = document.createElement('textarea'), ok = false;
     ta.value = text; ta.setAttribute('readonly', '');
@@ -2712,11 +2645,6 @@ function copyText(text, okMsg, failMsg) {
   }
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(fallback()); });
   else done(fallback());
-}
-// The board ID line under the Solved sheet and the ⋯ menu
-function boardIdNote(extra, center) {
-  var id = E.shareId(game._reg);
-  return '<p class="note' + (center ? ' center' : '') + '">' + (id ? 'Board ID <span class="board-id">' + id + '</span>' : 'Puzzle ' + esc(game.id)) + (extra ? ' · ' + extra : '') + '</p>';
 }
 
 /* ---------------------------------------------------------------- Play tab */
@@ -2758,9 +2686,6 @@ function renderPlay() {
     '<div class="tier-note"><span class="pips">' + tl.map(function (t, k) { return '<i class="' + (k <= tl.indexOf(tier) ? 'on' : '') + '"></i>'; }).join('') + '</span><span>' + TIER_NOTE[tier] + '</span></div>' +
     '<div class="mode-row"><span class="ic">' + I.nib + '</span><span class="txt"><b>Ink mode</b><span>' + W('Stars and dots are permanent.') + '</span></span><button class="switch' + (S.ink ? ' on' : '') + '" id="ink-switch" role="switch" aria-checked="' + S.ink + '" aria-label="Ink mode"></button></div>' +
     '<button class="btn btn-primary mt" id="start-btn">' + I.play + 'Start ' + (size !== 10 ? sizeLabel(size) + ' ' : '') + tier + (S.ink ? ' in Ink' : '') + '</button></div>';
-  html += '<div class="card"><div class="card-h"><h2>Shared board</h2></div>' +
-    '<form class="bid-form" id="bid-form" autocomplete="off" novalidate><input class="bid-in" id="bid-in" type="text" placeholder="Paste a link or board ID" aria-label="Link or board ID" aria-describedby="bid-msg" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">' +
-    '<button class="bid-go" id="bid-go" type="submit"></button></form><p class="bid-msg" id="bid-msg" aria-live="polite">' + BID_HELP + '</p></div>';
   // the lesson lives on the welcome screen and in the Learn tab; here, the show until it's watched or closed
   if (!seen.explain && !seen.explainTip) html += explainPromo('x-home', true);
   v.innerHTML = html;
@@ -2772,15 +2697,6 @@ function renderPlay() {
   $$('#size-seg button', v).forEach(function (b) { b.onclick = function () { store.set(K.size, +b.dataset.n); renderPlay(); genKick(); }; });
   $('#ink-switch').onclick = function () { S.ink = !S.ink; saveSettings(); renderPlay(); if (S.ink && !seen.inkIntro) showInkIntro(); };
   $('#start-btn').onclick = function () { confirmNew(function () { startNew(); }); };
-  $('#bid-in').value = bidDraft;   // kept while the Play tab redraws (picking a size or level)
-  bidButton();
-  $('#bid-in').oninput = function () { bidDraft = this.value; bidMsg(); bidButton(); };
-  $('#bid-form').onsubmit = function (e) {
-    e.preventDefault();
-    var text = $('#bid-in').value;
-    if (text.trim() || !CAN_PASTE) { playSharedId(text); return; }
-    pasteSharedId();
-  };
   if ($('#x-home-go')) {
     $('#x-home-go').onclick = function () { openExplain(); };
     $('#x-home-close').onclick = function () { markSeen('explainTip'); $('#x-home').remove(); };
@@ -2824,7 +2740,7 @@ function showSolvedSheet(r) {
   openSheet('<div class="center">' + solvedArt() + '<h2>Solved</h2><p class="lead" style="margin-bottom:4px">' + gameLabel(game) + ' · ' + fmtTime(game.elapsed) + (game.ink ? ' · in Ink' : '') + '</p><div class="badges">' + badges + '</div></div>' +
     '<div class="facts"><div class="fact"><b>' + fmtTime(game.elapsed) + '</b><span>' + (r.newBest ? '<span class="new-best">New best</span>' : 'Time') + '</span></div><div class="fact"><b>' + fmtTime(r.best) + '</b><span>Best ' + (game.daily ? 'daily' : game.tier) + '</span></div><div class="fact"><b>' + r.streak + '</b><span>Day streak</span></div></div>' +
     unlock + '<button class="btn btn-primary" id="s-next">' + I.play + 'Next puzzle</button><button class="btn btn-soft" id="s-home">Home</button>' +
-    (E.shareId(game._reg) ? '<button class="btn btn-text" id="s-share">' + I.share + 'Challenge a friend</button>' : '') + boardIdNote('', true), function (b) {
+    (E.shareId(game._reg) ? '<button class="btn btn-text" id="s-share">' + I.share + 'Challenge a friend</button>' : ''), function (b) {
       $('#s-next', b).onclick = function () { closeSheet(); nextPuzzle(); };
       $('#s-home', b).onclick = function () { closeSheet(); goBack(); };
       if ($('#s-share', b)) $('#s-share', b).onclick = function () { shareBoard(true); };
@@ -2849,8 +2765,7 @@ function showMoreMenu() {
     '<button class="menu-item" id="mm-new">' + I.spark + 'New puzzle</button>' +
     (E.shareId(game._reg) ? '<button class="menu-item" id="mm-share">' + I.share + (game.solved ? 'Challenge a friend' : 'Share this board') + '</button>' : '') +
     '<button class="menu-item" id="mm-look">' + I.sliders + 'Appearance</button>' +
-    '<button class="menu-item" id="mm-learn">' + I.book + 'How to play</button>' +
-    boardIdNote((game.daily ? 'Daily · ' : '') + gameLabel(game) + (game.ink ? ' · Ink' : ''), false), function (b) {
+    '<button class="menu-item" id="mm-learn">' + I.book + 'How to play</button>', function (b) {
       if ($('#mm-retry', b)) $('#mm-retry', b).onclick = retryBoard;
       $('#mm-new', b).onclick = function () { closeSheet(); nextPuzzle(); };
       if ($('#mm-share', b)) $('#mm-share', b).onclick = function () { closeSheet(); shareBoard(game.solved); };
@@ -3749,8 +3664,7 @@ function showWelcome() {
     // Opened from a friend's link: the puzzle comes first. This is also what an iPhone player with the
     // Home Screen app sees, since the link opens in Safari, which keeps a separate copy of the game.
     w.innerHTML = '<div class="w-inner w-swap"><div class="w-board">' + thumbFor(sb, false) + '</div><h1>From a friend</h1><div class="welcome-cap">' + sizeLabel(boardSize(sb.regions)) + ' ' + sb.tier + ' puzzle</div>' + rules +
-      '<button class="btn btn-primary" id="w-play">' + I.play + 'Play it</button><button class="btn btn-text" id="w-lesson">' + I.book + 'Learn to play first</button>' +
-      (IS_IOS && !isInstalled() ? '<p class="w-note w-ios">Have ' + APP_NAME + ' on your Home Screen? It keeps its own progress, apart from Safari. To play this there, <button class="w-link" id="w-copy">copy this link</button>, open the app and tap Paste under Shared board.</p>' : '') + '</div>';
+      '<button class="btn btn-primary" id="w-play">' + I.play + 'Play it</button><button class="btn btn-text" id="w-lesson">' + I.book + 'Learn to play first</button></div>';
   } else {
     w.innerHTML = '<div class="w-inner w-swap"><div style="width:190px;height:190px">' + welcomeArt() + '</div><h1>' + APP_NAME + '</h1><div class="welcome-cap">' + APP_CAPTION + '</div>' + rules +
       '<button class="btn btn-primary" id="w-lesson">' + I.book + 'Learn to play</button><button class="btn btn-text" id="w-skip">Skip</button></div>';
@@ -3760,7 +3674,6 @@ function showWelcome() {
   $('#w-lesson').onclick = function () { markSeen('welcome'); w.remove(); tipAfterLesson = !isInstalled(); openLesson(); };   // teach first, Home Screen page after
   if (!sb) { $('#w-skip').onclick = function () { markSeen('welcome'); showHomeTip(function () { }, w); }; return; }
   $('#w-play').onclick = function () { markSeen('welcome'); w.remove(); if (pendingShared) playShared(pendingShared); };
-  if ($('#w-copy')) $('#w-copy').onclick = function () { copyText(linkFor(sb), 'Link copied. Now open ' + APP_NAME + ' from your Home Screen and tap Paste.', 'Could not copy the link.'); };
 }
 // ---- Home Screen tip: shown once after the welcome page, and kept under Settings > App
 var IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);

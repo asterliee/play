@@ -580,10 +580,6 @@ svg { display: block; }
   .greet h1, .page-title { font-size: 27px; }
   .hero { padding: 18px; }
   .pick-grid.pal { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .ink-chip { gap: 6px; padding-left: 12px; }
-  .ink-chip .lbl { display: none; }
-  .start-row .btn { font-size: 15.5px; gap: 7px; white-space: nowrap; }
-  .start-row .btn svg { width: 17px; height: 17px; }
   .pick-grid.pal .nm { font-size: 13px; letter-spacing: 0; }
   .hero-thumb { width: 86px; height: 86px; border-radius: 15px; }
   .hero-eye { font-size: 12px; letter-spacing: .4px; }
@@ -703,7 +699,7 @@ if (!E) {   // engine.js did not load: offline, and this version was never saved
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.9.0';   // when engine.js changes, also bump the ?v= on its script tag
+var APP_VERSION = '3.9.1';   // when engine.js changes, also bump the ?v= on its script tag
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 8×8 is a shorter game with the same four tiers;
 // 6×6 is a quick game that tops out at Hard.
@@ -2749,7 +2745,7 @@ function renderPlay() {
     '<div class="tiers" role="tablist" style="grid-template-columns:repeat(' + tl.length + ',1fr)">' +
     tl.map(function (t) { return '<button data-t="' + t + '" class="' + (t === tier ? 'sel' : '') + '">' + t + '</button>'; }).join('') + '</div>' +
     '<div class="tier-note"><span class="pips">' + tl.map(function (t, k) { return '<i class="' + (k <= tl.indexOf(tier) ? 'on' : '') + '"></i>'; }).join('') + '</span><span>' + TIER_NOTE[tier] + '</span></div>' +
-    '<div class="start-row"><button class="btn btn-primary" id="start-btn">' + I.play + 'Start ' + (size !== 10 ? sizeLabel(size) + ' ' : '') + tier + '</button>' +
+    '<div class="start-row"><button class="btn btn-primary" id="start-btn" aria-label="Start ' + sizeLabel(size) + ' ' + tier + ' puzzle">' + I.play + 'Start</button>' +
     '<button class="ink-chip' + (S.ink ? ' on' : '') + '" id="ink-switch" role="switch" aria-checked="' + S.ink + '" aria-label="Ink mode: stars and dots are permanent">' + I.nib + '<span class="lbl">Ink</span><span class="switch' + (S.ink ? ' on' : '') + '"></span></button></div></div>';
   // the lesson lives on the welcome screen and in the Learn tab; here, the show until it's watched or closed
   if (!seen.explain && !seen.explainTip) html += explainPromo('x-home', true);

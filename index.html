@@ -25,7 +25,7 @@
   --surface: #FFFFFF;
   --surface-2: #EFEDE7;
   --surface-3: #E4E1D8;
-  --well: #E6E3DA;
+  --well: #12153D;
   --ink: #1D2035;
   --ink-2: #5E6175;
   --ink-3: #737687;
@@ -70,7 +70,7 @@
   --surface: #221F28;
   --surface-2: #2B2732;
   --surface-3: #35303D;
-  --well: #121016;
+  --well: #0F1133;
   --ink: #F1EFF4;
   --ink-2: #B3B0BC;
   --ink-3: #807D8A;
@@ -163,6 +163,30 @@ svg { display: block; }
 .muted { color: var(--ink-2); }
 .row-flex { display: flex; align-items: center; gap: 12px; }
 
+/* the daily puzzle: a night sky like the app icon (navy, gold stars), the one dark card on the screen */
+.hero { position: relative; display: block; width: 100%; text-align: left; margin-top: 16px; padding: 20px; border-radius: 26px; overflow: hidden; color: #fff;
+  background: linear-gradient(155deg, #353B88 0%, #252A6E 45%, #14183A 100%); box-shadow: 0 12px 30px rgba(20, 24, 58, .26); transition: transform .14s; }
+:root[data-theme="dark"] .hero { box-shadow: 0 0 0 1px rgba(255, 255, 255, .07), 0 12px 30px rgba(0, 0, 0, .45); }
+.hero:active { transform: scale(.985); }
+.hero-sky { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+.hero-top { position: relative; display: flex; gap: 14px; align-items: flex-start; }
+.hero-txt { flex: 1; min-width: 0; padding-top: 2px; }
+.hero-eye { font-size: 12.5px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; color: #F4C35A; }
+.hero-t { font-family: var(--font-display); font-size: 30px; font-weight: 700; letter-spacing: -.7px; line-height: 1.1; margin: 6px 0 8px; }
+.hero-s { font-size: 14.5px; line-height: 1.4; color: rgba(255, 255, 255, .76); }
+.hero-s b { color: #fff; font-weight: 650; }
+.hero-thumb { width: 108px; height: 108px; flex: none; border-radius: 18px; overflow: hidden; box-shadow: 0 0 0 3px rgba(255, 255, 255, .16), 0 10px 24px rgba(0, 0, 0, .32); }
+.hero-thumb svg { width: 100%; height: 100%; display: block; }
+.hero-go { position: relative; display: flex; align-items: center; justify-content: center; gap: 9px; height: 52px; margin-top: 18px; border-radius: 16px;
+  background: linear-gradient(180deg, #FFD97A, #EFAF42); color: #171B45; font-size: 17px; font-weight: 700; box-shadow: 0 8px 20px rgba(239, 175, 66, .3); }
+.hero-go svg { width: 19px; height: 19px; }
+.hero-go.done { background: rgba(255, 255, 255, .1); color: rgba(255, 255, 255, .86); box-shadow: none; }
+.start-row { display: flex; gap: 8px; margin-top: 14px; }
+.start-row .btn { flex: 1; min-width: 0; }
+.ink-chip { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 54px; padding: 0 16px 0 14px; border-radius: 17px; background: var(--surface-2); color: var(--ink-2); font-size: 15.5px; font-weight: 650; transition: background .2s, color .2s; }
+.ink-chip svg { width: 19px; height: 19px; }
+.ink-chip.on { background: var(--ink); color: var(--bg); }
+
 .play-card { display: flex; gap: 14px; align-items: center; width: 100%; text-align: left; }
 .play-card .thumb { width: 92px; height: 92px; flex: none; border-radius: 16px; overflow: hidden; }
 .play-card .info { flex: 1; min-width: 0; }
@@ -233,7 +257,7 @@ svg { display: block; }
 .timer svg { width: 14px; height: 14px; opacity: .8; }
 .timer.off { display: none; }
 .g-main { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 0; }
-.board-card { background: var(--surface); border-radius: 26px; box-shadow: var(--shadow-2); padding: 9px; transition: width .25s, height .25s; flex: none; }
+.board-card { background: linear-gradient(155deg, #353B88 0%, #252A6E 45%, #14183A 100%); border-radius: 26px; box-shadow: 0 14px 34px rgba(20, 24, 58, .3); padding: 11px; transition: width .25s, height .25s; flex: none; }
 #board { touch-action: none; position: relative; width: 100%; height: 100%; }
 #board svg { width: 100%; height: 100%; overflow: visible; }
 .progress { display: flex; gap: 5px; margin-top: 14px; align-items: center; min-height: 18px; }
@@ -319,6 +343,10 @@ svg { display: block; }
 .mini-seg button { height: 30px; padding: 0 12px; border-radius: 8px; font-size: 14px; color: var(--ink-2); font-weight: 500; }
 .mini-seg button.sel { background: var(--surface); color: var(--ink); font-weight: 650; box-shadow: var(--shadow-1); }
 .pick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pick-grid.pal { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.pick-grid.pal .pick { padding-left: 3px; padding-right: 3px; }
+.pick-grid.pal .nm { font-size: 12.5px; letter-spacing: -.2px; }
+:root[data-theme="dark"] .board-card { box-shadow: 0 0 0 1px rgba(255, 255, 255, .07), 0 14px 34px rgba(0, 0, 0, .45); }
 .pick { background: var(--surface); border-radius: 18px; padding: 8px 7px 7px; box-shadow: var(--shadow-1); text-align: center; border: 2px solid transparent; transition: border-color .2s, transform .14s; min-width: 0; }
 .pick:active { transform: scale(.96); }
 .pick.sel { border-color: var(--accent); }
@@ -547,6 +575,10 @@ svg { display: block; }
 @media (max-width: 370px) {
   .view { padding-left: 14px; padding-right: 14px; }
   .greet h1, .page-title { font-size: 27px; }
+  .hero { padding: 18px; }
+  .hero-thumb { width: 86px; height: 86px; border-radius: 15px; }
+  .hero-eye { font-size: 12px; letter-spacing: .4px; }
+  .hero-t { font-size: 27px; }
   .tool { width: 66px; }
   .play-card .thumb { width: 80px; height: 80px; }
 }
@@ -662,7 +694,7 @@ if (!E) {   // engine.js did not load: offline, and this version was never saved
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.7.1';   // when engine.js changes, also bump the ?v= on its script tag
+var APP_VERSION = '3.8.0';   // when engine.js changes, also bump the ?v= on its script tag
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 8×8 is a shorter game with the same four tiers;
 // 6×6 is a quick game that tops out at Hard.
@@ -718,7 +750,7 @@ store.del('sb1:queue'); store.del('sb1:played');
 })();
 
 var DEFAULTS = {
-  palette: 'meadow', piece: 'star', mark: 'dot', theme: 'system',
+  palette: 'dusk', piece: 'star', mark: 'dot', theme: 'system',
   autoDots: false, autoLines: false, autoFill: false, autoCheck: true, showTimer: true,
   sound: false, soundTheme: 'keys', ink: false
 };
@@ -736,6 +768,7 @@ var S = (function () {
   delete s.patterns;                                            // colour-blind patterns were retired
   delete s.grid;                                                // so was the grid-lines toggle
   delete s.haptics;                                             // and haptics
+  if (!s.dusk) { if (s.palette === 'meadow') s.palette = 'dusk'; s.dusk = 1; }   // 3.8 made Dusk the default; Meadow is still in Settings
   return s;
 })();
 function saveSettings() { store.set(K.settings, S); }
@@ -829,6 +862,11 @@ function hashStr(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h
    cool sea colours, and Paper is plain ink lines. Ember and Tide mix light and dark
    shades so neighbouring regions still read apart without the full rainbow. */
 var PALETTES = {
+  dusk: {
+    name: 'Dusk', note: 'Twilight tones', raw: true,
+    colors: ['#8E9BE6', '#B49DE6', '#CF96CF', '#E99AAF', '#F2AE8E', '#EFC97E', '#AFCB8F', '#84CBB0', '#78BFCC', '#97C2EC'],
+    names: ['periwinkle', 'lavender', 'mauve', 'rose', 'apricot', 'honey', 'sage', 'sea green', 'teal', 'sky blue']
+  },
   meadow: {
     name: 'Meadow', note: 'Soft pastels',
     colors: ['#FFC5C5', '#FEC9A9', '#F7E4A9', '#CDE7B0', '#ABE6C2', '#97E7E3', '#9EDCFD', '#BCCFFE', '#DEC6FC', '#F1B9DB'],
@@ -850,7 +888,7 @@ var PALETTES = {
     names: ['', '', '', '', '', '', '', '', '', '']
   }
 };
-if (!PALETTES[S.palette]) S.palette = 'meadow';
+if (!PALETTES[S.palette]) S.palette = 'dusk';
 
 function hexRgb(h) { return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; }
 function rgbHex(r) { return '#' + r.map(function (v) { v = Math.round(clamp(v, 0, 255)); return (v < 16 ? '0' : '') + v.toString(16); }).join('').toUpperCase(); }
@@ -894,7 +932,7 @@ function lchHex(L, C, h) { for (var c = C; c > 0; c -= .5) { var x = labHex(L, c
 // Dark mode board colours. Each palette is remade in Lab: same hues, most of the colour, and the same
 // light-to-dark order, moved into a darker band. Ember and Tide get a wider band because they tell
 // neighbouring regions apart by lightness as much as by hue; Meadow's pastels lean on hue.
-var DARK_BAND = { meadow: [34, 50, .95, 6, 50], ember: [30, 60, 1, 4, 56], tide: [30, 60, 1, 4, 56] };   // [L from, L to, chroma ×, chroma +, chroma max]
+var DARK_BAND = { dusk: [48, 64, .9, 2, 44], meadow: [34, 50, .95, 6, 50], ember: [30, 60, 1, 4, 56], tide: [30, 60, 1, 4, 56] };   // [L from, L to, chroma ×, chroma +, chroma max]
 var DARK_CACHE = {};
 function darkColors(pal) {
   if (DARK_CACHE[pal]) return DARK_CACHE[pal];
@@ -923,7 +961,7 @@ function paletteColor(i, pal) {
   pal = pal || S.palette;
   var P = PALETTES[pal];
   if (P.paper) return isDark() ? '#26222C' : '#FFFCF6';
-  return isDark() ? darkColors(pal)[i] : vivid(P.colors[i]);
+  return isDark() ? darkColors(pal)[i] : P.raw ? P.colors[i] : vivid(P.colors[i]);
 }
 function markColorOn(hex) {
   if (!isDark()) return lum(hex) > .3 ? 'rgba(29,32,53,.52)' : 'rgba(250,250,255,.85)';   // light marks on deep cells
@@ -2648,6 +2686,18 @@ function copyText(text) {
 }
 
 /* ---------------------------------------------------------------- Play tab */
+// The daily card's sky, drawn like the app icon: faint stars, and a dotted constellation of gold
+// stars across the top
+function heroSky() {
+  var dots = [[14, 16, .45], [52, 30, .25], [96, 9, .35], [138, 26, .2], [176, 13, .4], [30, 70, .2], [88, 58, .16], [150, 84, .22],
+    [194, 60, .3], [20, 118, .25], [72, 132, .18], [130, 116, .22], [196, 136, .28], [214, 104, .2], [38, 214, .3], [112, 226, .2],
+    [186, 212, .25], [262, 228, .3], [330, 214, .25], [346, 150, .3], [218, 168, .2]];
+  var c = [[204, 22], [244, 10], [284, 24], [326, 8]], s = '<svg class="hero-sky" viewBox="0 0 354 236" preserveAspectRatio="xMidYMin slice" aria-hidden="true">';
+  dots.forEach(function (d) { s += '<circle cx="' + d[0] + '" cy="' + d[1] + '" r="' + (d[2] > .3 ? 1.3 : .9) + '" fill="#fff" opacity="' + d[2] + '"/>'; });
+  s += '<path d="M' + c.map(function (p) { return p.join(' '); }).join('L') + '" fill="none" stroke="#F4C35A" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="0 4.5" opacity=".7"/>';
+  c.forEach(function (p, k) { s += '<path d="' + SPARK24 + '" fill="#F4C35A" transform="translate(' + p[0] + ' ' + p[1] + ') scale(' + (k === 1 ? .5 : .36) + ') translate(-12 -12)"/>'; });
+  return s + '</svg>';
+}
 function thumbFor(g, withMarks) {
   var n = boardSize(g.regions), reg = E.decode(g.regions), map = assignColors(reg, n, hashStr(g.id + ':' + S.palette));
   var cols = map.map(function (ci) { return paletteColor(ci); });
@@ -2663,33 +2713,37 @@ function renderPlay() {
   var v = $('#v-play'), st = loadStats(), sk = streakInfo(st), now = new Date();
   var saved = savedGame(K.game), daily = savedGame(K.daily), size = chosenSize(), tier = chosenTier(size), tl = tiersFor(size);
   var html = '<div class="topbar"><div class="brand">' + brandMark(38) + wordmark() + '</div>' +
-    '<button class="chip-streak" id="streak-chip" aria-label="Day streak">' + I.spark + '<span class="num">' + sk.current + '</span></button></div>' +
-    '<div class="greet"><h1>' + greeting() + '</h1><p>' + DAYS[now.getDay()] + ', ' + now.getDate() + ' ' + MONTHS[now.getMonth()] + (sk.current ? ' · ' + sk.current + '-day streak' : '') + '</p></div>';
+    (sk.current ? '<button class="chip-streak" id="streak-chip" aria-label="' + sk.current + '-day streak">' + I.spark + '<span class="num">' + sk.current + '</span></button>' : '') + '</div>';
   if (noteShown()) html += '<div class="card dev-note" id="dev-note" role="status"><div class="txt">' + esc(NOTE.text) + '</div>' +
     '<button class="icon-btn" id="note-close" aria-label="Close note">' + I.close + '</button></div>';
   if (pendingShared) html += '<div class="card"><button class="play-card" id="c-shared"><div class="thumb">' + thumbFor(pendingShared, false) + '</div><div class="info"><div class="eyebrow">From a friend</div><div class="t1">' + sizeLabel(boardSize(pendingShared.regions)) + ' ' + pendingShared.tier + '</div><div class="t2">A puzzle shared with you. Tap to play it.</div></div><span class="go">' + I.play + '</span></button></div>';
+  // the daily puzzle, as a night sky
+  var dg = daily && daily.daily === dayKey() ? daily : null, dtier = dg ? dg.tier : dailyTier();   // a daily started before an update keeps its level
+  var done = (st.dailyDone && st.dailyDone[dayKey()]) || (dg && dg.solved ? dg.elapsed || 1 : 0);   // the saved game still knows after a stats reset
+  var dboard = dg || dailyBoard(), going = dg && dg.moved && !dg.solved && !dg.failed;
+  var dline = done ? 'Solved in <b class="num">' + fmtTime(done) + '</b>. A new one tomorrow.'
+    : dg && dg.failed ? 'Your Ink attempt ended.'
+    : going ? savedProgress(dg) + W(' of 10 stars') + ' · <span class="num">' + fmtTime(dg.elapsed) + '</span>'
+    : sk.current && !sk.today ? 'Solve it to keep your ' + sk.current + '-day streak.' : 'A new puzzle every day.';
+  html += '<button class="hero" id="c-daily">' + heroSky() +
+    '<div class="hero-top"><div class="hero-txt"><div class="hero-eye">Daily · ' + DAYS[now.getDay()].slice(0, 3) + ' ' + now.getDate() + ' ' + MONTHS[now.getMonth()].slice(0, 3) + '</div>' +
+    '<div class="hero-t">' + dtier + '</div><div class="hero-s">' + dline + '</div></div><div class="hero-thumb">' + thumbFor(dboard, !!dg) + '</div></div>' +
+    '<span class="hero-go' + (done ? ' done' : '') + '">' + (done ? I.check + 'Solved' : dg && dg.failed ? I.restore + 'Try again' : going ? I.play + 'Continue' : I.play + 'Play') + '</span></button>';
   if (saved && !saved.solved && !saved.failed) {
     var n = savedProgress(saved), sn = boardSize(saved.regions);
     html += '<div class="card"><button class="play-card" id="c-continue"><div class="thumb">' + thumbFor(saved, true) + '</div><div class="info"><div class="eyebrow">Continue</div><div class="t1">' + (sn !== 10 ? sizeLabel(sn) + ' ' : '') + saved.tier + (saved.ink ? ' · Ink' : '') + '</div><div class="t2">' + n + ' of ' + sn + W(' stars · ') + fmtTime(saved.elapsed) + '</div></div><span class="go">' + I.play + '</span></button></div>';
   }
-  var dg = daily && daily.daily === dayKey() ? daily : null, dtier = dg ? dg.tier : dailyTier();   // a daily started before an update keeps its level
-  var done = (st.dailyDone && st.dailyDone[dayKey()]) || (dg && dg.solved ? dg.elapsed || 1 : 0);   // the saved game still knows after a stats reset
-  var dboard = dg || dailyBoard();
-  html += '<div class="card"><div class="card-h"><h2>Daily puzzle</h2><span class="aside">' + dtier + '</span></div>' +
-    '<button class="play-card" id="c-daily"><div class="thumb">' + thumbFor(dboard, !!dg) + '</div><div class="info"><div class="t2">' +
-    (done ? 'Solved in <b class="num">' + fmtTime(done) + '</b>. Next puzzle tomorrow.' : dg && dg.failed ? 'Your Ink attempt ended. Tap to try again.' : dg && dg.moved ? 'In progress · ' + savedProgress(dg) + W(' of 10 stars') : 'One new puzzle each day.' + (sk.current && !sk.today ? ' Solve any puzzle today to keep your streak.' : '')) +
-    '</div></div><span class="go' + (done ? ' done' : '') + '">' + (done ? I.check : dg && dg.failed ? I.restore : I.play) + '</span></button></div>';
   html += '<div class="card"><div class="card-h"><h2>New puzzle</h2><div class="mini-seg" id="size-seg" role="tablist" aria-label="Board size">' +
     SIZES.map(function (n) { return '<button data-n="' + n + '" class="' + (n === size ? 'sel' : '') + '">' + sizeLabel(n) + '</button>'; }).join('') + '</div></div>' +
     '<div class="tiers" role="tablist" style="grid-template-columns:repeat(' + tl.length + ',1fr)">' +
     tl.map(function (t) { return '<button data-t="' + t + '" class="' + (t === tier ? 'sel' : '') + '">' + t + '</button>'; }).join('') + '</div>' +
     '<div class="tier-note"><span class="pips">' + tl.map(function (t, k) { return '<i class="' + (k <= tl.indexOf(tier) ? 'on' : '') + '"></i>'; }).join('') + '</span><span>' + TIER_NOTE[tier] + '</span></div>' +
-    '<div class="mode-row"><span class="ic">' + I.nib + '</span><span class="txt"><b>Ink mode</b><span>' + W('Stars and dots are permanent.') + '</span></span><button class="switch' + (S.ink ? ' on' : '') + '" id="ink-switch" role="switch" aria-checked="' + S.ink + '" aria-label="Ink mode"></button></div>' +
-    '<button class="btn btn-primary mt" id="start-btn">' + I.play + 'Start ' + (size !== 10 ? sizeLabel(size) + ' ' : '') + tier + (S.ink ? ' in Ink' : '') + '</button></div>';
+    '<div class="start-row"><button class="btn btn-primary" id="start-btn">' + I.play + 'Start ' + (size !== 10 ? sizeLabel(size) + ' ' : '') + tier + '</button>' +
+    '<button class="ink-chip' + (S.ink ? ' on' : '') + '" id="ink-switch" role="switch" aria-checked="' + S.ink + '" aria-label="Ink mode: stars and dots are permanent">' + I.nib + 'Ink</button></div></div>';
   // the lesson lives on the welcome screen and in the Learn tab; here, the show until it's watched or closed
   if (!seen.explain && !seen.explainTip) html += explainPromo('x-home', true);
   v.innerHTML = html;
-  $('#streak-chip').onclick = function () { $('#tabbar [data-tab=stats]').click(); };
+  if ($('#streak-chip')) $('#streak-chip').onclick = function () { $('#tabbar [data-tab=stats]').click(); };
   if ($('#c-continue')) $('#c-continue').onclick = continueGame;
   if ($('#c-shared')) $('#c-shared').onclick = function () { playShared(pendingShared); };
   $('#c-daily').onclick = openDaily;
@@ -2999,7 +3053,7 @@ function segRow(key, label, opts) {
 function lookControls(compact) {
   if (compact) {
     // short version for the in-game sheet: colours, pieces + marks on one row, then theme and sound
-    return '<div class="pick-grid sm">' +
+    return '<div class="pick-grid sm pal">' +
       Object.keys(PALETTES).map(function (p) { return '<button class="pick' + (S.palette === p ? ' sel' : '') + '" data-pal="' + p + '" aria-pressed="' + (S.palette === p) + '"><div class="pv">' + palettePreview(p) + '</div><span class="nm">' + PALETTES[p].name + '</span></button>'; }).join('') + '</div>' +
       '<div class="qrow"><div class="pc-row">' +
       PIECES.map(function (p) { return '<button class="pc-btn' + (S.piece === p ? ' sel' : '') + '" data-piece="' + p + '" aria-label="' + PIECE_NAMES[p] + '" aria-pressed="' + (S.piece === p) + '">' + piecePreviewSVG(p, 28) + '</button>'; }).join('') + '</div>' +
@@ -3007,7 +3061,7 @@ function lookControls(compact) {
       '<div class="list mt">' + segRow('theme', 'Theme', [['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]) +
       soundRow() + '</div>';
   }
-  var html = '<div class="group-label">Board colours</div><div class="pick-grid">' +
+  var html = '<div class="group-label">Board colours</div><div class="pick-grid pal">' +
     Object.keys(PALETTES).map(function (p) { return '<button class="pick' + (S.palette === p ? ' sel' : '') + '" data-pal="' + p + '" aria-pressed="' + (S.palette === p) + '"><div class="pv">' + palettePreview(p) + '</div><span class="nm">' + PALETTES[p].name + '</span></button>'; }).join('') + '</div>' +
     '<div class="group-label">Pieces</div><div class="pick-grid">' +
     PIECES.map(function (p) { return '<button class="pick' + (S.piece === p ? ' sel' : '') + '" data-piece="' + p + '" aria-pressed="' + (S.piece === p) + '"><div class="pv pc">' + piecePreviewSVG(p, 38) + '</div><span class="nm">' + PIECE_NAMES[p] + '</span></button>'; }).join('') + '</div>';

@@ -329,6 +329,11 @@ svg { display: block; }
 .fact b { display: block; font-family: var(--font-num); font-size: 21px; font-variant-numeric: tabular-nums; }
 .fact span { font-size: 12px; color: var(--ink-2); }
 .new-best { color: var(--gold-deep); font-weight: 700; }
+/* Share your time: a gold pill under the result, findable without competing with Next puzzle */
+.share-pill { display: flex; align-items: center; justify-content: center; gap: 8px; width: fit-content; margin: -2px auto 18px; height: 42px; padding: 0 18px; border-radius: 21px;
+  border: 1.5px solid var(--gold); color: var(--gold-deep); background: transparent; font-size: 15.5px; font-weight: 650; transition: background .2s, transform .14s; }
+.share-pill svg { width: 18px; height: 18px; }
+.share-pill:active { background: var(--gold-soft); transform: scale(.97); }
 .unlock { display: flex; gap: 10px; align-items: center; background: var(--gold-soft); border-radius: 16px; padding: 10px 12px; margin: -4px 0 14px; text-align: left; }
 .unlock svg { width: 34px; height: 34px; flex: none; }
 .unlock b { display: block; font-size: 15px; }
@@ -616,7 +621,8 @@ svg { display: block; }
 }
 @media (hover: hover) and (pointer: fine) {
   #board, #l-board { cursor: pointer; }
-  .btn-primary:hover, .pill.primary:hover, .play-card:hover .go { filter: brightness(1.06); }
+  .btn-primary:hover, .pill.primary:hover, .play-card:hover .go, .hero:hover .hero-go { filter: brightness(1.06); }
+  .share-pill:hover { background: var(--gold-soft); }
   .btn-soft:hover, .icon-btn:hover, .tool:not(:disabled):hover .tw, .pill:not(.primary):not(.ghost):hover, .cal-nav:hover, .pc-btn:hover, .pick:hover, .chip-streak:hover { filter: brightness(.97); }
   .btn-text:hover, .pill.ghost:hover { color: var(--ink); }
   .menu-item:hover, button.li:hover { background: var(--surface-2); }
@@ -699,7 +705,7 @@ if (!E) {   // engine.js did not load: offline, and this version was never saved
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.9.1';   // when engine.js changes, also bump the ?v= on its script tag
+var APP_VERSION = '3.9.2';   // when engine.js changes, also bump the ?v= on its script tag
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 8×8 is a shorter game with the same four tiers;
 // 6×6 is a quick game that tops out at Hard.
@@ -2173,12 +2179,10 @@ var MS_GROUPS = ['Getting started', 'Speed', 'Mastery', 'Long haul'];
 var MILESTONES = [
   { id: 'first', g: 0, name: 'First light', desc: 'Solve your first puzzle', glyph: 'spark', need: 1, count: function (s) { return s.total; } },
   { id: 'daily', g: 0, name: 'Daybreak', desc: 'Solve a daily puzzle', glyph: 'sun', need: 1, count: function (s) { return s.dailies; } },
-  { id: 'clear', g: 0, name: 'Clear sky', desc: 'Solve with no hints and no stars taken back', glyph: 'check', need: 1, count: function (s) { return s.clears; } },
   { id: 'ink', g: 0, name: 'Steady hand', desc: 'Solve a puzzle in Ink mode', glyph: 'nib', need: 1, count: function (s) { return s.inks; } },
   { id: 'ten', g: 0, name: 'Constellation', desc: 'Solve 10 puzzles', glyph: 'const', need: 10, count: function (s) { return s.total; } },
   { id: 'expert', g: 0, name: 'Deep sky', desc: 'Solve an Expert puzzle', glyph: 'moon', need: 1, count: function (s) { return s.x.expert; } },
   { id: 'week', g: 0, name: 'Seven days', desc: 'Solve a puzzle 7 days in a row', glyph: 'cal', need: 7, count: function (s) { return s.streak; } },
-  { id: 'owl', g: 0, name: 'Night owl', desc: 'Solve a puzzle after 10 pm', glyph: 'owl', need: 1, count: function (s) { return s.x.owl; } },
   { id: 'quick', g: 1, name: 'Quicksilver', desc: 'Medium in under 1:30, no hints', glyph: 'watch', best: 'Medium', limit: 90 },
   { id: 'swift', g: 1, name: 'Swift', desc: 'Hard in under 4 minutes, no hints', glyph: 'bolt', best: 'Hard', limit: 240 },
   { id: 'comet', g: 1, name: 'Comet', desc: 'Expert in under 4 minutes, no hints', glyph: 'comet', best: 'Expert', limit: 240 },
@@ -2800,8 +2804,8 @@ function showSolvedSheet(r) {
     (ul.length > 3 ? '<p class="lead center" style="margin:2px 0 12px">and ' + (ul.length - 3) + ' more in Stats</p>' : '');
   openSheet('<div class="center">' + solvedArt() + '<h2>Solved</h2><p class="lead" style="margin-bottom:4px">' + gameLabel(game) + ' · ' + fmtTime(game.elapsed) + (game.ink ? ' · in Ink' : '') + '</p><div class="badges">' + badges + '</div></div>' +
     '<div class="facts"><div class="fact"><b>' + fmtTime(game.elapsed) + '</b><span>' + (r.newBest ? '<span class="new-best">New best</span>' : 'Time') + '</span></div><div class="fact"><b>' + fmtTime(r.best) + '</b><span>Best ' + (game.daily ? 'daily' : game.tier) + '</span></div><div class="fact"><b>' + r.streak + '</b><span>Day streak</span></div></div>' +
-    unlock + '<button class="btn btn-primary" id="s-next">' + I.play + 'Next puzzle</button><button class="btn btn-soft" id="s-home">Home</button>' +
-    (E.shareId(game._reg) ? '<button class="btn btn-text" id="s-share">' + I.share + 'Challenge a friend</button>' : ''), function (b) {
+    (E.shareId(game._reg) ? '<button class="share-pill" id="s-share">' + I.share + 'Share your time</button>' : '') +
+    unlock + '<button class="btn btn-primary" id="s-next">' + I.play + 'Next puzzle</button><button class="btn btn-soft" id="s-home">Home</button>', function (b) {
       $('#s-next', b).onclick = function () { closeSheet(); nextPuzzle(); };
       $('#s-home', b).onclick = function () { closeSheet(); goBack(); };
       if ($('#s-share', b)) $('#s-share', b).onclick = function () { shareBoard(true); };
@@ -2824,7 +2828,7 @@ function showInkFailSheet() {
 function showMoreMenu() {
   openSheet((game.failed ? '<button class="menu-item" id="mm-retry">' + I.restore + 'Retry puzzle</button>' : '') +
     '<button class="menu-item" id="mm-new">' + I.spark + 'New puzzle</button>' +
-    (E.shareId(game._reg) ? '<button class="menu-item" id="mm-share">' + I.share + (game.solved ? 'Challenge a friend' : 'Share this board') + '</button>' : '') +
+    (E.shareId(game._reg) ? '<button class="menu-item" id="mm-share">' + I.share + (game.solved ? 'Share your time' : 'Share this board') + '</button>' : '') +
     '<button class="menu-item" id="mm-look">' + I.sliders + 'Appearance</button>' +
     '<button class="menu-item" id="mm-learn">' + I.book + 'How to play</button>', function (b) {
       if ($('#mm-retry', b)) $('#mm-retry', b).onclick = retryBoard;

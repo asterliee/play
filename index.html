@@ -309,8 +309,6 @@ svg { display: block; }
 .sheet-body { overflow-y: auto; padding: 12px 20px 22px; -webkit-overflow-scrolling: touch; }
 .sheet h2 { font-family: var(--font-display); font-weight: 600; font-size: 26px; margin: 6px 0 4px; letter-spacing: -.2px; }
 .sheet .lead { color: var(--ink-2); font-size: 15.5px; line-height: 1.45; margin: 4px 0 14px; }
-.note-art { width: 104px; height: 104px; margin: 6px auto 12px; }
-.note-art svg { width: 100%; height: 100%; display: block; }
 .center { text-align: center; }
 .menu-item { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 6px; font-size: 17px; border-bottom: 1px solid var(--line); text-align: left; }
 .menu-item:last-child { border-bottom: 0; }
@@ -491,6 +489,26 @@ svg { display: block; }
 .x-levels .on { background: var(--gold-soft); color: var(--ink); }
 
 /* welcome */
+/* ---------------- news card: in the middle of the screen, closes with ×, a tap outside or Esc ---------------- */
+.pop { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 70; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: var(--scrim); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); opacity: 0; transition: opacity .22s; }
+.pop.show { opacity: 1; }
+.pop-card { position: relative; width: 100%; max-width: 330px; background: var(--surface); border-radius: 30px; overflow: hidden; text-align: center;
+  box-shadow: 0 30px 60px -20px rgba(10, 12, 40, .5), 0 8px 20px rgba(10, 12, 40, .15); transform: translateY(14px) scale(.94); transition: transform .34s cubic-bezier(.2, .9, .3, 1.12); }
+.pop.show .pop-card { transform: none; }
+:root[data-theme="dark"] .pop-card { box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), 0 30px 60px -20px rgba(0, 0, 0, .7); }
+.pop-sky { position: relative; height: 196px; display: grid; place-items: center;
+  background: radial-gradient(130% 90% at 10% -10%, rgba(255, 255, 255, .15), rgba(255, 255, 255, 0) 55%), linear-gradient(160deg, #3B4294 0%, #272D74 42%, #151A40 100%); }
+.pop-sky .hero-sky { transform: translateX(-48px); }   /* the constellation clear of the × */
+.pop-art { position: relative; width: 138px; height: 138px; border-radius: 18px; overflow: hidden; box-shadow: 0 0 0 3px rgba(255, 255, 255, .14), 0 14px 30px rgba(0, 0, 0, .4); }
+.pop-art svg { width: 100%; height: 100%; display: block; }
+.pop-x { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; border-radius: 50%; background: rgba(255, 255, 255, .14); color: #fff; display: grid; place-items: center; }
+.pop-x svg { width: 16px; height: 16px; }
+.pop-body { padding: 18px 22px 22px; }
+.pop-tag { display: inline-block; padding: 4px 10px; border-radius: 10px; background: var(--gold-soft); color: var(--gold-deep); font-size: 12px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; }
+.pop-body h2 { font-family: var(--font-display); font-size: 25px; font-weight: 700; letter-spacing: -.5px; margin: 10px 0 6px; }
+.pop-body p { color: var(--ink-2); font-size: 15px; line-height: 1.45; margin: 0 0 18px; }
+@media (prefers-reduced-motion: reduce) { .pop, .pop-card { transition: none; } }
 .welcome { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 60; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: calc(env(safe-area-inset-top) + 24px) 28px calc(env(safe-area-inset-bottom) + 28px); text-align: center; }   /* the cover shows at once; only its content fades in (.w-swap), so the app never shows through */
 .welcome .art { width: 210px; height: 150px; }
 .welcome h1 { font-family: var(--font-display); font-weight: 700; font-size: 34px; margin: 14px 0 8px; letter-spacing: -1px; }
@@ -705,7 +723,7 @@ if (!E) {   // engine.js did not load: offline, and this version was never saved
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.9.3';   // when engine.js changes, also bump the ?v= on its script tag
+var APP_VERSION = '3.9.4';   // when engine.js changes, also bump the ?v= on its script tag
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 8×8 is a shorter game with the same four tiers;
 // 6×6 is a quick game that tops out at Hard.
@@ -2850,8 +2868,8 @@ function showInkIntro() {
 // time (an absolute time, the same moment everywhere); after that nobody sees it. Old notes can
 // be deleted from this list at any time.
 var DEV_NOTES = [
-  { id: 'noteChart', until: '2026-11-12T00:00:00+11:00', title: 'New: Star chart',
-    text: 'A new board style: every region drawn as a glowing outline on a night sky. Try it now, or switch any time in Settings under Board colours.',
+  { id: 'noteChart', until: '2026-11-12T00:00:00+11:00', title: 'Star chart',
+    text: 'A new board style: every region drawn as a glowing outline on a night sky. Switch any time in Settings under Board colours.',
     skip: function () { return S.palette === 'chart'; },          // already using it: nothing to say
     art: function () { return chartArt(); }, tryLabel: 'Try Star chart',
     onTry: function () {
@@ -2867,6 +2885,26 @@ function chartArt() {
   var n = boardSize(e.r), reg = E.decode(e.r), cols = assignColors(reg, n, hashStr('noteChart')).map(function (ci) { return paletteColor(ci, 'chart'); });
   return miniBoard(n, reg, cols, { chart: true, stars: [1, 5].map(function (r) { return r * n + (+e.s[r]); }), gridW: 3, piece: 'star' });
 }
+// A card in the middle of the screen, for news. Closes with the ×, a tap outside it, or Esc.
+var popEl = null;
+function showPop(html, onReady) {
+  closePop(true);
+  var w = document.createElement('div');
+  w.className = 'pop'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true'); w.setAttribute('aria-labelledby', 'pop-t');
+  w.innerHTML = '<div class="pop-card">' + html + '</div>';
+  $('#app').appendChild(w); popEl = w;
+  void w.offsetWidth; w.classList.add('show');
+  w.onclick = function (e) { if (e.target === w) closePop(); };
+  if ($('.pop-x', w)) $('.pop-x', w).onclick = function () { closePop(); };
+  if (onReady) onReady(w);
+}
+function closePop(now) {
+  var w = popEl;
+  if (!w) return;
+  popEl = null;
+  if (now) { w.remove(); return; }
+  w.classList.remove('show'); setTimeout(function () { w.remove(); }, 260);
+}
 function showDevNote() {
   var now = Date.now();
   for (var k = 0; k < DEV_NOTES.length; k++) {
@@ -2874,11 +2912,11 @@ function showDevNote() {
     if (seen[note.id] || !(now < Date.parse(note.until))) continue;
     markSeen(note.id);                                             // once per player, whatever they choose
     if (note.skip && note.skip()) continue;
-    var art = note.art ? '<div class="note-art">' + note.art() + '</div>' : '';
-    openSheet(art + '<div class="eyebrow center">A note from the developer</div><h2 class="center">' + esc(note.title) + '</h2><p class="lead center">' + esc(note.text) + '</p>' +
-      '<button class="btn btn-primary" id="dn-try">' + esc(note.tryLabel) + '</button><button class="btn btn-text" id="dn-close">Close</button>', function (b) {
-      $('#dn-try', b).onclick = function () { closeSheet(); note.onTry(); };
-      $('#dn-close', b).onclick = closeSheet;
+    showPop('<div class="pop-sky">' + heroSky() + (note.art ? '<div class="pop-art">' + note.art() + '</div>' : '') +
+      '<button class="pop-x" aria-label="Close">' + I.close + '</button></div>' +
+      '<div class="pop-body"><span class="pop-tag">New</span><h2 id="pop-t">' + esc(note.title) + '</h2><p>' + esc(note.text) + '</p>' +
+      '<button class="btn btn-primary" id="dn-try">' + esc(note.tryLabel) + '</button></div>', function (w) {
+      $('#dn-try', w).onclick = function () { closePop(); note.onTry(); };
     });
     return;
   }
@@ -3876,7 +3914,7 @@ function checkForUpdate() {
 }
 function quietMoment() {
   var a = document.activeElement;
-  return screen === 'tabs' && !lessonOpen && !explainOpen && !$('#welcome') && !$('#sheet').classList.contains('show') &&
+  return screen === 'tabs' && !lessonOpen && !explainOpen && !$('#welcome') && !popEl && !$('#sheet').classList.contains('show') &&
     !(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'));
 }
 function applyUpdate() {
@@ -3946,7 +3984,7 @@ function init() {
   document.addEventListener('keydown', function (e) {
     if (e.target && /^(TEXTAREA|INPUT)$/.test(e.target.tagName)) return;
     var k = (e.key || '').toLowerCase(), mod = e.ctrlKey || e.metaKey, sheetOpen = $('#sheet').classList.contains('show');
-    if (k === 'escape') { if (sheetOpen) closeSheet(); else if (hint) closeHint(); return; }
+    if (k === 'escape') { if (popEl) closePop(); else if (sheetOpen) closeSheet(); else if (hint) closeHint(); return; }
     if (screen !== 'game' || lessonOpen || !game || sheetOpen) return;
     if (mod && k === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
     else if (mod && k === 'y') { e.preventDefault(); redo(); }

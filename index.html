@@ -25,7 +25,7 @@
   --surface: #FFFFFF;
   --surface-2: #EFEDE7;
   --surface-3: #E4E1D8;
-  --well: #12153D;
+  --well: transparent;
   --ink: #1D2035;
   --ink-2: #5E6175;
   --ink-3: #737687;
@@ -70,7 +70,7 @@
   --surface: #221F28;
   --surface-2: #2B2732;
   --surface-3: #35303D;
-  --well: #0F1133;
+  --well: transparent;
   --ink: #F1EFF4;
   --ink-2: #B3B0BC;
   --ink-3: #807D8A;
@@ -164,9 +164,11 @@ svg { display: block; }
 .row-flex { display: flex; align-items: center; gap: 12px; }
 
 /* the daily puzzle: a night sky like the app icon (navy, gold stars), the one dark card on the screen */
-.hero { position: relative; display: block; width: 100%; text-align: left; margin-top: 16px; padding: 20px; border-radius: 26px; overflow: hidden; color: #fff;
-  background: linear-gradient(155deg, #353B88 0%, #252A6E 45%, #14183A 100%); box-shadow: 0 12px 30px rgba(20, 24, 58, .26); transition: transform .14s; }
-:root[data-theme="dark"] .hero { box-shadow: 0 0 0 1px rgba(255, 255, 255, .07), 0 12px 30px rgba(0, 0, 0, .45); }
+.hero { position: relative; display: block; width: 100%; text-align: left; margin-top: 16px; padding: 20px; border-radius: 32px; overflow: hidden; color: #fff;
+  background: radial-gradient(130% 90% at 10% -10%, rgba(255, 255, 255, .17), rgba(255, 255, 255, 0) 55%), linear-gradient(160deg, #3B4294 0%, #272D74 42%, #151A40 100%);
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, .24), inset 0 0 0 1px rgba(255, 255, 255, .06), inset 0 -16px 30px rgba(6, 8, 32, .4), 0 24px 44px -16px rgba(20, 24, 58, .6), 0 8px 18px rgba(20, 24, 58, .16);
+  transition: transform .14s; }
+:root[data-theme="dark"] .hero { box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, .2), inset 0 0 0 1px rgba(255, 255, 255, .08), inset 0 -16px 30px rgba(4, 5, 20, .45), 0 24px 44px -16px rgba(0, 0, 0, .7); }
 .hero:active { transform: scale(.985); }
 .hero-sky { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 .hero-top { position: relative; display: flex; gap: 14px; align-items: flex-start; }
@@ -178,14 +180,16 @@ svg { display: block; }
 .hero-thumb { width: 108px; height: 108px; flex: none; border-radius: 18px; overflow: hidden; box-shadow: 0 0 0 3px rgba(255, 255, 255, .16), 0 10px 24px rgba(0, 0, 0, .32); }
 .hero-thumb svg { width: 100%; height: 100%; display: block; }
 .hero-go { position: relative; display: flex; align-items: center; justify-content: center; gap: 9px; height: 52px; margin-top: 18px; border-radius: 16px;
-  background: linear-gradient(180deg, #FFD97A, #EFAF42); color: #171B45; font-size: 17px; font-weight: 700; box-shadow: 0 8px 20px rgba(239, 175, 66, .3); }
+  background: linear-gradient(180deg, #FFDE85, #EFAF42); color: #171B45; font-size: 17px; font-weight: 700;
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, .6), inset 0 -3px 0 rgba(170, 105, 15, .35), 0 12px 24px -8px rgba(239, 175, 66, .6); }
 .hero-go svg { width: 19px; height: 19px; }
-.hero-go.done { background: rgba(255, 255, 255, .1); color: rgba(255, 255, 255, .86); box-shadow: none; }
+.hero-go.done { background: rgba(255, 255, 255, .1); color: rgba(255, 255, 255, .86); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14); }
 .start-row { display: flex; gap: 8px; margin-top: 14px; }
 .start-row .btn { flex: 1; min-width: 0; }
-.ink-chip { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 54px; padding: 0 16px 0 14px; border-radius: 17px; background: var(--surface-2); color: var(--ink-2); font-size: 15.5px; font-weight: 650; transition: background .2s, color .2s; }
-.ink-chip svg { width: 19px; height: 19px; }
-.ink-chip.on { background: var(--ink); color: var(--bg); }
+/* Ink: the same switch as in Settings, so on and off read at a glance in light and dark */
+.ink-chip { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 54px; padding: 0 10px 0 14px; border-radius: 17px; background: var(--surface-2); color: var(--ink); font-size: 15.5px; font-weight: 650; }
+.ink-chip > svg { width: 19px; height: 19px; color: var(--ink-2); }
+.ink-chip .switch { transform: scale(.8); margin: 0 -4px; }
 
 .play-card { display: flex; gap: 14px; align-items: center; width: 100%; text-align: left; }
 .play-card .thumb { width: 92px; height: 92px; flex: none; border-radius: 16px; overflow: hidden; }
@@ -257,7 +261,7 @@ svg { display: block; }
 .timer svg { width: 14px; height: 14px; opacity: .8; }
 .timer.off { display: none; }
 .g-main { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 0; }
-.board-card { background: linear-gradient(155deg, #353B88 0%, #252A6E 45%, #14183A 100%); border-radius: 26px; box-shadow: 0 14px 34px rgba(20, 24, 58, .3); padding: 11px; transition: width .25s, height .25s; flex: none; }
+.board-card { background: none; border-radius: 26px; padding: 9px; transition: width .25s, height .25s; flex: none; }
 #board { touch-action: none; position: relative; width: 100%; height: 100%; }
 #board svg { width: 100%; height: 100%; overflow: visible; }
 .progress { display: flex; gap: 5px; margin-top: 14px; align-items: center; min-height: 18px; }
@@ -343,10 +347,9 @@ svg { display: block; }
 .mini-seg button { height: 30px; padding: 0 12px; border-radius: 8px; font-size: 14px; color: var(--ink-2); font-weight: 500; }
 .mini-seg button.sel { background: var(--surface); color: var(--ink); font-weight: 650; box-shadow: var(--shadow-1); }
 .pick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.pick-grid.pal { grid-template-columns: repeat(5, 1fr); gap: 6px; }
-.pick-grid.pal .pick { padding-left: 3px; padding-right: 3px; }
-.pick-grid.pal .nm { font-size: 12.5px; letter-spacing: -.2px; }
-:root[data-theme="dark"] .board-card { box-shadow: 0 0 0 1px rgba(255, 255, 255, .07), 0 14px 34px rgba(0, 0, 0, .45); }
+.pick-grid.pal { grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.pick-grid.pal .pick { padding-left: 2px; padding-right: 2px; }
+.pick-grid.pal .nm { font-size: 12px; letter-spacing: -.35px; }
 .pick { background: var(--surface); border-radius: 18px; padding: 8px 7px 7px; box-shadow: var(--shadow-1); text-align: center; border: 2px solid transparent; transition: border-color .2s, transform .14s; min-width: 0; }
 .pick:active { transform: scale(.96); }
 .pick.sel { border-color: var(--accent); }
@@ -576,6 +579,12 @@ svg { display: block; }
   .view { padding-left: 14px; padding-right: 14px; }
   .greet h1, .page-title { font-size: 27px; }
   .hero { padding: 18px; }
+  .pick-grid.pal { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .ink-chip { gap: 6px; padding-left: 12px; }
+  .ink-chip .lbl { display: none; }
+  .start-row .btn { font-size: 15.5px; gap: 7px; white-space: nowrap; }
+  .start-row .btn svg { width: 17px; height: 17px; }
+  .pick-grid.pal .nm { font-size: 13px; letter-spacing: 0; }
   .hero-thumb { width: 86px; height: 86px; border-radius: 15px; }
   .hero-eye { font-size: 12px; letter-spacing: .4px; }
   .hero-t { font-size: 27px; }
@@ -694,7 +703,7 @@ if (!E) {   // engine.js did not load: offline, and this version was never saved
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.8.0';   // when engine.js changes, also bump the ?v= on its script tag
+var APP_VERSION = '3.9.0';   // when engine.js changes, also bump the ?v= on its script tag
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 8×8 is a shorter game with the same four tiers;
 // 6×6 is a quick game that tops out at Hard.
@@ -867,6 +876,11 @@ var PALETTES = {
     colors: ['#8E9BE6', '#B49DE6', '#CF96CF', '#E99AAF', '#F2AE8E', '#EFC97E', '#AFCB8F', '#84CBB0', '#78BFCC', '#97C2EC'],
     names: ['periwinkle', 'lavender', 'mauve', 'rose', 'apricot', 'honey', 'sage', 'sea green', 'teal', 'sky blue']
   },
+  chart: {
+    name: 'Star chart', note: 'Outlines on a night sky', raw: true, chart: true,
+    colors: ['#8E9BE6', '#B49DE6', '#CF96CF', '#E99AAF', '#F2AE8E', '#EFC97E', '#AFCB8F', '#84CBB0', '#78BFCC', '#97C2EC'],
+    names: ['periwinkle', 'lavender', 'mauve', 'rose', 'apricot', 'honey', 'sage', 'sea green', 'teal', 'sky blue']
+  },
   meadow: {
     name: 'Meadow', note: 'Soft pastels',
     colors: ['#FFC5C5', '#FEC9A9', '#F7E4A9', '#CDE7B0', '#ABE6C2', '#97E7E3', '#9EDCFD', '#BCCFFE', '#DEC6FC', '#F1B9DB'],
@@ -876,11 +890,6 @@ var PALETTES = {
     name: 'Ember', note: 'Warm and deep',
     colors: ['#C8414F', '#8C2C47', '#F08A72', '#B4532E', '#7A4A35', '#DCA184', '#D8789A', '#7D3F70', '#B88BB0', '#8A8743'],
     names: ['red', 'dark red', 'coral', 'orange', 'brown', 'tan', 'pink', 'purple', 'light purple', 'olive']
-  },
-  tide: {
-    name: 'Tide', note: 'Cool sea glass',
-    colors: ['#34507F', '#3B7CBF', '#8EC3EA', '#71CFCB', '#2C8C86', '#A6DDBF', '#4E8A57', '#93A866', '#A7A3DE', '#63768D'],
-    names: ['navy', 'blue', 'light blue', 'turquoise', 'teal', 'mint', 'green', 'olive', 'purple', 'grey']
   },
   paper: {
     name: 'Paper', note: 'Ink on paper', paper: true,
@@ -961,6 +970,7 @@ function paletteColor(i, pal) {
   pal = pal || S.palette;
   var P = PALETTES[pal];
   if (P.paper) return isDark() ? '#26222C' : '#FFFCF6';
+  if (P.chart) return P.colors[i];                        // outlines on its own sky: the same in light and dark
   return isDark() ? darkColors(pal)[i] : P.raw ? P.colors[i] : vivid(P.colors[i]);
 }
 function markColorOn(hex) {
@@ -1185,12 +1195,12 @@ function sharedDefs() {
 }
 
 /* ---------------------------------------------------------------- mini boards (static previews) */
-var GAP = 9, R_OUT = 20, R_IN = 7;
+var GAP = 9, R_OUT = 20, R_IN = 7, CHART_SKY = '#11143A';
 function miniBoard(n, reg, colors, opts) {
   opts = opts || {};
   var paper = opts.paper, d = paper ? 0 : GAP / 2, pad = d + 2, size = n * U, k;
   var s = '<svg viewBox="' + (-pad) + ' ' + (-pad) + ' ' + (size + 2 * pad) + ' ' + (size + 2 * pad) + '" preserveAspectRatio="xMidYMid meet" aria-hidden="true">';
-  s += '<rect x="' + (-pad) + '" y="' + (-pad) + '" width="' + (size + 2 * pad) + '" height="' + (size + 2 * pad) + '" rx="' + (R_OUT + pad) + '" fill="' + (opts.well || 'var(--well)') + '"/>';
+  s += '<rect x="' + (-pad) + '" y="' + (-pad) + '" width="' + (size + 2 * pad) + '" height="' + (size + 2 * pad) + '" rx="' + (R_OUT + pad) + '" fill="' + (opts.well || (opts.chart ? CHART_SKY : 'var(--well)')) + '"/>';
   if (paper) {
     s += '<rect x="0" y="0" width="' + size + '" height="' + size + '" rx="' + R_OUT + '" fill="' + colors[0] + '"/>';
     s += '<path d="' + paperGrid(n) + '" stroke="var(--grid)" stroke-width="2.4" fill="none"/>';
@@ -1198,10 +1208,10 @@ function miniBoard(n, reg, colors, opts) {
     s += '<rect x="0" y="0" width="' + size + '" height="' + size + '" rx="' + R_OUT + '" fill="none" stroke="var(--paper-line)" stroke-width="7"/>';
   } else {
     var loops = regionLoops(n, reg);
-    for (k = 0; k < n; k++) s += '<path d="' + regionPath(loops[k], d, R_OUT, R_IN) + '" fill="' + colors[k] + '"/>';
-    if (opts.grid !== false) s += '<path d="' + innerGrid(n, reg, d) + '" stroke="var(--grid)" stroke-width="' + (opts.gridW || 2.4) + '" fill="none"/>';
+    for (k = 0; k < n; k++) s += '<path d="' + regionPath(loops[k], d, R_OUT, R_IN) + '" fill="' + colors[k] + '"' + (opts.chart ? ' fill-opacity=".28" stroke="' + colors[k] + '" stroke-width="5" stroke-linejoin="round"' : '') + '/>';
+    if (opts.grid !== false) s += '<path d="' + innerGrid(n, reg, d) + '" stroke="' + (opts.chart ? 'rgba(255,255,255,.08)' : 'var(--grid)') + '" stroke-width="' + (opts.gridW || 2.4) + '" fill="none"/>';
   }
-  (opts.dots || []).forEach(function (i) { s += '<circle cx="' + ((i % n) * U + 50) + '" cy="' + (((i / n) | 0) * U + 50) + '" r="11" fill="' + (opts.dotColor || (paper ? 'var(--mark)' : markColorOn(colors[reg[i]]))) + '"/>'; });
+  (opts.dots || []).forEach(function (i) { s += '<circle cx="' + ((i % n) * U + 50) + '" cy="' + (((i / n) | 0) * U + 50) + '" r="11" fill="' + (opts.dotColor || (paper ? 'var(--mark)' : opts.chart ? 'rgba(235,238,255,.82)' : markColorOn(colors[reg[i]]))) + '"/>'; });
   (opts.stars || []).forEach(function (i) { s += '<g transform="translate(' + ((i % n) * U + 50) + ' ' + (((i / n) | 0) * U + 50) + ')">' + pieceSVG(opts.piece || S.piece, 1.05) + '</g>'; });
   return s + (opts.extra || '') + '</svg>';
 }
@@ -1229,7 +1239,7 @@ function BoardView(host, n) {
 }
 BoardView.prototype.build = function (reg, colorIdx, pal) {
   var n = this.n, size = n * U, P = PALETTES[pal || S.palette], paper = !!P.paper, d = paper ? 0 : GAP / 2, pad = 16, k;
-  this.reg = reg; this.colorIdx = colorIdx; this.paper = paper; this.d = d;
+  this.reg = reg; this.colorIdx = colorIdx; this.paper = paper; this.chart = !!P.chart; this.d = d;
   this.host.innerHTML = '';
   this.vb = [-pad, -pad, size + 2 * pad, size + 2 * pad];
   var svg = this.svg = el('svg', { viewBox: this.vb.join(' '), 'aria-label': 'Puzzle board', role: 'img' }, this.host);
@@ -1244,15 +1254,16 @@ BoardView.prototype.build = function (reg, colorIdx, pal) {
     el('path', { d: borderPath(n, reg), stroke: 'var(--paper-line)', 'stroke-width': 5.5, 'stroke-linecap': 'round', fill: 'none' }, this.gGrid);
     el('rect', { x: 0, y: 0, width: size, height: size, rx: R_OUT, fill: 'none', stroke: 'var(--paper-line)', 'stroke-width': 6.5 }, this.gGrid);
   } else {
-    el('rect', { x: -d, y: -d, width: size + 2 * d, height: size + 2 * d, rx: R_OUT + d, fill: 'var(--well)' }, this.gWell);
+    el('rect', { x: -d, y: -d, width: size + 2 * d, height: size + 2 * d, rx: R_OUT + d, fill: P.chart ? CHART_SKY : 'var(--well)' }, this.gWell);
     var loops = regionLoops(n, reg);
     this.regionD = [];
     for (k = 0; k < n; k++) {
       var dd = regionPath(loops[k], d, R_OUT, R_IN);
       this.regionD.push(dd);
-      el('path', { d: dd, fill: this.colors[k] }, this.gReg);
+      if (P.chart) el('path', { d: dd, fill: this.colors[k], 'fill-opacity': .28, stroke: this.colors[k], 'stroke-width': 5, 'stroke-linejoin': 'round' }, this.gReg);
+      else el('path', { d: dd, fill: this.colors[k] }, this.gReg);
     }
-    el('path', { d: innerGrid(n, reg, d), stroke: 'var(--grid)', 'stroke-width': 2.2, fill: 'none', 'stroke-linecap': 'round' }, this.gGrid);
+    el('path', { d: innerGrid(n, reg, d), stroke: P.chart ? 'rgba(255,255,255,.08)' : 'var(--grid)', 'stroke-width': 2.2, fill: 'none', 'stroke-linecap': 'round' }, this.gGrid);
   }
   this.vis = new Uint8Array(n * n); this.nodes = new Array(n * n);
 };
@@ -1266,7 +1277,7 @@ BoardView.prototype.cellAt = function (cx, cy) {
   if (c < 0 || r < 0 || c >= this.n || r >= this.n) return -1;
   return r * this.n + c;
 };
-BoardView.prototype.markColor = function (i) { return this.paper ? (isDark() ? 'rgba(236,237,247,.7)' : 'rgba(29,32,53,.5)') : markColorOn(this.colors[this.reg[i]]); };
+BoardView.prototype.markColor = function (i) { if (this.chart) return 'rgba(235,238,255,.82)'; return this.paper ? (isDark() ? 'rgba(236,237,247,.7)' : 'rgba(29,32,53,.5)') : markColorOn(this.colors[this.reg[i]]); };
 
 // ---- marks
 BoardView.prototype._dotNode = function (i, cls, delay) {
@@ -2703,7 +2714,7 @@ function thumbFor(g, withMarks) {
   var cols = map.map(function (ci) { return paletteColor(ci); });
   var stars = [], dots = [];
   if (withMarks && g.marks) for (var i = 0; i < n * n; i++) { if (g.marks[i] === '3') stars.push(i); else if (g.marks[i] !== '0') dots.push(i); }
-  return miniBoard(n, reg, cols, { paper: PALETTES[S.palette].paper, stars: stars, dots: dots, gridW: 3 });
+  return miniBoard(n, reg, cols, { paper: PALETTES[S.palette].paper, chart: PALETTES[S.palette].chart, stars: stars, dots: dots, gridW: 3 });
 }
 // A short note on the home screen: shown until NOTE.until, or until the player closes it
 var NOTE = { id: 'priyank', text: 'Priyank is the best!', until: Date.parse('2026-10-25T12:04:00Z') }, noteTimer = 0;
@@ -2739,7 +2750,7 @@ function renderPlay() {
     tl.map(function (t) { return '<button data-t="' + t + '" class="' + (t === tier ? 'sel' : '') + '">' + t + '</button>'; }).join('') + '</div>' +
     '<div class="tier-note"><span class="pips">' + tl.map(function (t, k) { return '<i class="' + (k <= tl.indexOf(tier) ? 'on' : '') + '"></i>'; }).join('') + '</span><span>' + TIER_NOTE[tier] + '</span></div>' +
     '<div class="start-row"><button class="btn btn-primary" id="start-btn">' + I.play + 'Start ' + (size !== 10 ? sizeLabel(size) + ' ' : '') + tier + '</button>' +
-    '<button class="ink-chip' + (S.ink ? ' on' : '') + '" id="ink-switch" role="switch" aria-checked="' + S.ink + '" aria-label="Ink mode: stars and dots are permanent">' + I.nib + 'Ink</button></div></div>';
+    '<button class="ink-chip' + (S.ink ? ' on' : '') + '" id="ink-switch" role="switch" aria-checked="' + S.ink + '" aria-label="Ink mode: stars and dots are permanent">' + I.nib + '<span class="lbl">Ink</span><span class="switch' + (S.ink ? ' on' : '') + '"></span></button></div></div>';
   // the lesson lives on the welcome screen and in the Learn tab; here, the show until it's watched or closed
   if (!seen.explain && !seen.explainTip) html += explainPromo('x-home', true);
   v.innerHTML = html;
@@ -3042,7 +3053,7 @@ function tileH(icon, k, val, sub) { return '<div class="tile"><div class="k">' +
 var SAMPLE4 = [0, 0, 1, 1, 0, 2, 2, 1, 3, 2, 2, 1, 3, 3, 3, 1];
 function palettePreview(pal) {
   var cols = [0, 5, 3, 8].map(function (ci) { return paletteColor(ci, pal); });
-  return miniBoard(4, SAMPLE4, cols, { paper: PALETTES[pal].paper, stars: [1, 11], dots: [0, 2, 5, 7, 10, 15], piece: S.piece });
+  return miniBoard(4, SAMPLE4, cols, { paper: PALETTES[pal].paper, chart: PALETTES[pal].chart, stars: [1, 11], dots: [0, 2, 5, 7, 10, 15], piece: S.piece });
 }
 function switchRow(key, label, sub) {
   return '<div class="li"><span class="lbl">' + label + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</span><button class="switch' + (S[key] ? ' on' : '') + '" data-k="' + key + '" role="switch" aria-checked="' + !!S[key] + '" aria-label="' + label + '"></button></div>';

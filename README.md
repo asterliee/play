@@ -40,4 +40,4 @@ Keyboard: Ctrl+Z / ⌘Z undo, Ctrl+Y / ⇧⌘Z redo, H hint, Esc close.
 | `engine.js` | The puzzle engine: solver, grading, generator and board IDs. Runs in the page, in the Web Worker that makes new puzzles in the background, and in Node (`require('./engine.js')`) |
 | `sw.js` | Offline support and updates: it checks for a new version when the game opens and whenever it comes back on screen, and the page reloads into it at a quiet moment (never mid-puzzle) |
 
-When you change `engine.js`, bump the `?v=` on its script tag in `index.html`. Installed copies then update the page and its engine together. Bump `APP_VERSION` in `index.html` with each release: players see it in the "updated" message.
+When you change `engine.js`, bump the `?v=` on its script tag in `index.html`. Installed copies then update the page and its engine together. Bump `APP_VERSION` in `index.html` with each release (it shows at the bottom of Settings). Updates are silent; to tell players about something new, add a note to `DEV_NOTES` in `index.html`: it shows once, when they next open the game.

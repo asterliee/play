@@ -705,7 +705,7 @@ if (!E) {   // engine.js did not load: offline, and this version was never saved
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.9.2';   // when engine.js changes, also bump the ?v= on its script tag
+var APP_VERSION = '3.9.3';   // when engine.js changes, also bump the ?v= on its script tag
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 8×8 is a shorter game with the same four tiers;
 // 6×6 is a quick game that tops out at Hard.
@@ -2850,20 +2850,34 @@ function showInkIntro() {
 // time (an absolute time, the same moment everywhere); after that nobody sees it. Old notes can
 // be deleted from this list at any time.
 var DEV_NOTES = [
-  { id: 'note8x8', until: '2026-10-25T00:00:00+11:00', size: 8, title: 'New: 8×8 boards',
-    text: 'We\u2019ve added 8×8 boards: a shorter game with all four levels, from Easy to Expert. Pick 8×8 under New puzzle.' }
+  { id: 'noteChart', until: '2026-11-12T00:00:00+11:00', title: 'New: Star chart',
+    text: 'A new board style: every region drawn as a glowing outline on a night sky. Try it now, or switch any time in Settings under Board colours.',
+    skip: function () { return S.palette === 'chart'; },          // already using it: nothing to say
+    art: function () { return chartArt(); }, tryLabel: 'Try Star chart',
+    onTry: function () {
+      S.palette = 'chart'; saveSettings(); settingsChanged('palette');
+      if (screen === 'tabs') showTab(tab);
+      toast('Star chart is on. Change it any time in Settings.', 3000);
+    } }
 ];
+// A small 8×8 board in the Star chart style, with two of its stars
+function chartArt() {
+  var e = (BANK[qKey('Easy', 8)] || [])[0];
+  if (!e) return '';
+  var n = boardSize(e.r), reg = E.decode(e.r), cols = assignColors(reg, n, hashStr('noteChart')).map(function (ci) { return paletteColor(ci, 'chart'); });
+  return miniBoard(n, reg, cols, { chart: true, stars: [1, 5].map(function (r) { return r * n + (+e.s[r]); }), gridW: 3, piece: 'star' });
+}
 function showDevNote() {
   var now = Date.now();
   for (var k = 0; k < DEV_NOTES.length; k++) {
     var note = DEV_NOTES[k];
     if (seen[note.id] || !(now < Date.parse(note.until))) continue;
-    markSeen(note.id);
-    var bank = BANK[qKey('Easy', note.size)] || [];
-    var art = bank.length ? '<div class="note-art">' + thumbFor({ regions: bank[0].r, id: note.id }, false) + '</div>' : '';
+    markSeen(note.id);                                             // once per player, whatever they choose
+    if (note.skip && note.skip()) continue;
+    var art = note.art ? '<div class="note-art">' + note.art() + '</div>' : '';
     openSheet(art + '<div class="eyebrow center">A note from the developer</div><h2 class="center">' + esc(note.title) + '</h2><p class="lead center">' + esc(note.text) + '</p>' +
-      '<button class="btn btn-primary" id="dn-try">Try ' + sizeLabel(note.size) + '</button><button class="btn btn-text" id="dn-close">Close</button>', function (b) {
-      $('#dn-try', b).onclick = function () { closeSheet(); store.set(K.size, note.size); showTab('play'); genKick(); };
+      '<button class="btn btn-primary" id="dn-try">' + esc(note.tryLabel) + '</button><button class="btn btn-text" id="dn-close">Close</button>', function (b) {
+      $('#dn-try', b).onclick = function () { closeSheet(); note.onTry(); };
       $('#dn-close', b).onclick = closeSheet;
     });
     return;
@@ -3881,13 +3895,12 @@ function watchForUpdates() {
   document.addEventListener('visibilitychange', function () { if (document.hidden) applyUpdate(); else { checkForUpdate(); applyUpdate(); } });
   setInterval(function () { if (!document.hidden) checkForUpdate(); }, 20 * 60000);
 }
-// After reloading into a new version: back to the tab the player was on, and say what happened
+// After reloading into a new version: back to the tab the player was on, quietly
 function afterUpdate() {
   var t = null;
   try { t = sessionStorage.getItem('sb1:updated-tab'); sessionStorage.removeItem('sb1:updated-tab'); } catch (e) { }
   if (!t || pendingShared || !seen.welcome) return;
   if (t !== 'play' && $('#v-' + t)) showTab(t);
-  toast(APP_NAME + ' updated to ' + APP_VERSION);
 }
 function init() {
   applyTheme();

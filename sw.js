@@ -148,3 +148,23 @@ async function getFile(req) {
   const saved = await cache.match(req, { ignoreSearch: true });
   return saved || fetch(req);
 }
+
+// Streak reminders (see reminders/worker.js). Every push must show a notification straight away:
+// browsers cancel the subscription of a site that receives pushes without showing them.
+self.addEventListener('push', (event) => {
+  let d = {};
+  try { d = event.data ? event.data.json() : {}; } catch (e) { }
+  event.waitUntil(self.registration.showNotification(d.title || 'Asterlie', {
+    body: d.body || "Today's puzzle is waiting.", tag: d.tag || 'streak', icon: 'icon-192.png', data: { url: d.url || PAGE }
+  }));
+});
+
+// Tapping the notification brings the game forward, or opens it.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const pages = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (pages.length && 'focus' in pages[0]) return pages[0].focus();
+    return self.clients.openWindow((event.notification.data && event.notification.data.url) || PAGE);
+  })());
+});

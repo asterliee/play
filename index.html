@@ -723,7 +723,7 @@ if (!E) {   // engine.js did not load: offline, and this version was never saved
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.9.4';   // when engine.js changes, also bump the ?v= on its script tag
+var APP_VERSION = '3.10.0';   // when engine.js changes, also bump the ?v= on its script tag
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 8×8 is a shorter game with the same four tiers;
 // 6×6 is a quick game that tops out at Hard.
@@ -2167,6 +2167,7 @@ function checkWin() {
   if (st.length !== N || conflicts.length) return;
   game.solved = true; game.solvedAt = Date.now();
   var result = recordStats();
+  remindSync();   // streak reminder: moves to tomorrow evening
   saveGame(); closeHint(); updateGameChrome();
   setTimeout(function () { sfx.win(); view.constellation(st); }, 380);
   setTimeout(function () { showSolvedSheet(result); }, 1900);
@@ -3173,15 +3174,96 @@ function settingsChanged(k) {
     if (screen === 'game') updateGameChrome();
   }
 }
+/* ---------------------------------------------------------------- streak reminders
+   With reminders on, the game asks the reminder service (a Cloudflare Worker, code in
+   reminders/worker.js) for a notification at 7pm on the next day the streak would end, and asks
+   again after every solve and whenever the app opens, so a player who keeps playing never gets
+   one. The service keeps only this device's push address, the reminder's time and its text. */
+var REMINDER_API = 'https://asterlie-reminders.asterliee5526.workers.dev';
+var REMINDER_HOUR = 19;
+var REMINDERS_FOR_ALL = false;   // false: hidden until the version line in Settings is tapped 5 times
+K.remind = 'sb1:remind'; K.remindBeta = 'sb1:remind-beta';
+var remindSent = '', verTaps = 0;
+function remindersShown() { return REMINDERS_FOR_ALL || store.get(K.remindBeta, false); }
+function pushSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+function remindersOn() { return !!store.get(K.remind, false) && pushSupported() && Notification.permission === 'granted'; }
+function b64uBytes(k) { var s = atob(k.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((k.length + 3) % 4)); return Uint8Array.from(s, function (c) { return c.charCodeAt(0); }); }
+function remindPost(path, body) { return fetch(REMINDER_API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); }
+// This device's push subscription, made if needed (the browser only allows it once notifications are allowed)
+function pushSub() {
+  return navigator.serviceWorker.ready.then(function (reg) {
+    return reg.pushManager.getSubscription().then(function (sub) {
+      return sub || fetch(REMINDER_API + '/key').then(function (r) { return r.json(); }).then(function (j) {
+        return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uBytes(j.key) });
+      });
+    });
+  });
+}
+// When to remind: solved today, so tomorrow at 7pm; not yet today, so tonight if a streak is running and 7pm is still ahead
+function reminderPlan() {
+  var sk = streakInfo(loadStats()), now = new Date();
+  var day = sk.today ? now.getDate() + 1 : (sk.current && now.getHours() < REMINDER_HOUR ? now.getDate() : null);
+  if (day === null) return { at: null };
+  return {
+    at: new Date(now.getFullYear(), now.getMonth(), day, REMINDER_HOUR).getTime(),
+    until: new Date(now.getFullYear(), now.getMonth(), day + 1).getTime(),   // midnight, when the streak ends
+    title: sk.current > 1 ? 'Your ' + sk.current + '-day streak ends at midnight' : 'Make it two days in a row',
+    body: "Today's puzzle is waiting.", url: new URL('./', location.href).href, tag: 'streak'
+  };
+}
+function remindSync() {
+  if (!remindersOn()) return Promise.resolve();
+  var plan = reminderPlan(), sig = plan.at + ':' + (plan.title || '');
+  if (sig === remindSent) return Promise.resolve();
+  return pushSub().then(function (sub) {
+    plan.subscription = sub;
+    return remindPost('/remind', plan).then(function (r) { if (r.ok) remindSent = sig; });
+  }).catch(function () { });   // offline: the next solve or the next time the app opens tries again
+}
+function remindersEnable() {
+  if (!pushSupported()) return showHomeSteps();   // iPhone in Safari: only the Home Screen app can get notifications
+  Notification.requestPermission().then(function (p) {
+    if (p !== 'granted') return toast(p === 'denied' ? 'Notifications are turned off for Asterlie in your settings' : 'Reminders stay off');
+    return pushSub().then(function () {
+      store.set(K.remind, true); remindSent = '';
+      return remindSync();
+    }).then(function () { toast('Reminders on'); renderSettings(); });
+  }).catch(function () { toast("Couldn't turn on reminders. Try again when you're online."); });
+}
+function remindersDisable() {
+  store.set(K.remind, false); remindSent = '';
+  renderSettings();
+  if (pushSupported()) navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (sub) {
+    if (!sub) return;
+    remindPost('/forget', { endpoint: sub.endpoint }).catch(function () { });
+    return sub.unsubscribe();
+  }).catch(function () { });
+}
+function reminderRow() {
+  if (!remindersShown()) return '';
+  var on = remindersOn();
+  return '<div class="group-label">Reminders</div><div class="list"><div class="li"><span class="lbl">Streak reminder<span class="sub">' +
+    (pushSupported() ? 'A notification at 7pm if your streak would end at midnight.' : 'Add Asterlie to your Home Screen to get reminders.') +
+    '</span></span><button class="switch' + (on ? ' on' : '') + '" id="rem-switch" role="switch" aria-checked="' + on + '" aria-label="Streak reminder"></button></div></div>';
+}
+window.addEventListener('load', function () {
+  remindSync();
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) remindSync(); });
+});
+
 function renderSettings() {
   var v = $('#v-settings');
-  v.innerHTML = '<h1 class="page-title">Settings</h1>' + lookControls(false) +
+  v.innerHTML = '<h1 class="page-title">Settings</h1>' + lookControls(false) + reminderRow() +
     (isInstalled() ? '' : '<div class="group-label">App</div><div class="list"><button class="li" id="home-tip">' + I.phone + '<span class="lbl">Add to Home Screen<span class="sub">Play full screen like an app, even offline.</span></span>' + I.chevR + '</button></div>') +
     '<div class="group-label">Data</div><div class="list">' +
     '<button class="li" id="bk-reset" style="color:var(--rose)">' + I.trash.replace('<svg', '<svg style="color:var(--rose)"') + '<span class="lbl">Reset stats</span></button></div>' +
-    '<p class="note center">' + APP_NAME + ' ' + APP_VERSION + ' · Progress is stored on this device only.</p>';
+    '<p class="note center" id="app-ver">' + APP_NAME + ' ' + APP_VERSION + ' · Progress is stored on this device only.</p>';
   wireLook(v, renderSettings);
   if ($('#home-tip')) $('#home-tip').onclick = showHomeSteps;
+  if ($('#rem-switch')) $('#rem-switch').onclick = function () { if (remindersOn()) remindersDisable(); else remindersEnable(); };
+  $('#app-ver').onclick = function () {
+    if (++verTaps === 5 && !remindersShown()) { store.set(K.remindBeta, true); toast('Streak reminders unlocked'); renderSettings(); }
+  };
   $$('.switch[data-k]', v).forEach(function () { });
   $('#bk-reset').onclick = function () { confirmSheet('Reset all stats?', 'Solve counts, streaks, best times and milestones will be cleared. Settings and the current game are kept.', 'Reset stats', function () { store.del(K.stats); toast('Stats reset'); renderSettings(); }); };
 }

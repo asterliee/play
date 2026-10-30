@@ -38,6 +38,9 @@ Keyboard: Ctrl+Z / ⌘Z undo, Ctrl+Y / ⇧⌘Z redo, H hint, Esc close.
 |---|---|
 | `index.html` | The game: interface, hints, lesson and the built-in puzzle bank |
 | `engine.js` | The puzzle engine: solver, grading, generator and board IDs. Runs in the page, in the Web Worker that makes new puzzles in the background, and in Node (`require('./engine.js')`) |
-| `sw.js` | Offline support and updates: it checks for a new version when the game opens and whenever it comes back on screen, and the page reloads into it at a quiet moment (never mid-puzzle) |
+| `sw.js` | Offline support and updates: it checks for a new version when the game opens and whenever it comes back on screen, and the page reloads into it at a quiet moment (never mid-puzzle). Also shows streak reminders |
+| `reminders/worker.js` | The streak reminder service, a Cloudflare Worker (`asterlie-reminders`, with a D1 database bound as `DB` and a Cron Trigger every minute). The game asks it for a notification at 7pm on the next day the streak would end; each solve moves it on. Its address is `REMINDER_API` in `index.html`. Changing this file doesn't deploy it: paste it into the Worker's editor in Cloudflare |
+
+Streak reminders are hidden while they're being tried out: tap the version line at the bottom of Settings 5 times to show the switch. Set `REMINDERS_FOR_ALL` in `index.html` to `true` to show it to everyone.
 
 When you change `engine.js`, bump the `?v=` on its script tag in `index.html`. Installed copies then update the page and its engine together. Bump `APP_VERSION` in `index.html` with each release (it shows at the bottom of Settings). Updates are silent; to tell players about something new, add a note to `DEV_NOTES` in `index.html`: it shows once, when they next open the game.

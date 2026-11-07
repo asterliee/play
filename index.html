@@ -723,7 +723,7 @@ if (!E) {   // engine.js did not load: offline, and this version was never saved
 var N = 10, NN = 100;
 var APP_NAME = 'Asterlie';
 var APP_CAPTION = 'Star placement puzzle';
-var APP_VERSION = '3.10.0';   // when engine.js changes, also bump the ?v= on its script tag
+var APP_VERSION = '3.10.1';   // when engine.js changes, also bump the ?v= on its script tag
 var TIERS = ['Easy', 'Medium', 'Hard', 'Expert'];
 // Board sizes: 10×10 is the classic game; 8×8 is a shorter game with the same four tiers;
 // 6×6 is a quick game that tops out at Hard.
@@ -2736,7 +2736,7 @@ function thumbFor(g, withMarks) {
   return miniBoard(n, reg, cols, { paper: PALETTES[S.palette].paper, chart: PALETTES[S.palette].chart, stars: stars, dots: dots, gridW: 3 });
 }
 // A short note on the home screen: shown until NOTE.until, or until the player closes it
-var NOTE = { id: 'priyank', text: 'Priyank is the best!', until: Date.parse('2026-10-25T12:04:00Z') }, noteTimer = 0;
+var NOTE = { id: 'joy-birthday', text: 'Happy birthday Dr. Joy!!', until: Date.parse('2026-11-08T00:00:00+11:00') }, noteTimer = 0;
 function noteShown() { return Date.now() < NOTE.until && !seen['note:' + NOTE.id]; }
 function removeNote() { var el = $('#dev-note'); if (el) el.remove(); }
 function renderPlay() {
